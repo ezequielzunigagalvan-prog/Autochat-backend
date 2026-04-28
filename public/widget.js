@@ -1,4 +1,4 @@
-(function () {
+(async function () {
   const script = document.currentScript;
   const businessId = script?.dataset.businessId || "";
   const configuredApiUrl = script?.dataset.apiUrl || "";
@@ -35,7 +35,24 @@
       hello: "Hola. Para preparar tu diagnóstico, cuéntame qué negocio tienes, tus servicios, horarios, qué datos necesitas pedir y qué quieres automatizar."
     }
   };
-  const defaults = widgetDefaults[businessId] || widgetDefaults.demo_proyectos;
+  const defaults = { ...(widgetDefaults[businessId] || widgetDefaults.demo_proyectos) };
+  if (businessId && !widgetDefaults[businessId]) {
+    try {
+      const response = await fetch(`${apiUrl}/api/public/businesses/${businessId}/widget`);
+      if (response.ok) {
+        const config = await response.json();
+        defaults.title = config.title || defaults.title;
+        defaults.intro = config.intro || defaults.intro;
+        defaults.hello = config.hello || defaults.hello;
+        defaults.prompt = config.prompt || defaults.prompt;
+        defaults.name = "";
+        defaults.phone = "";
+        defaults.email = "";
+      }
+    } catch {
+      // Keep local defaults if the public config cannot be loaded.
+    }
+  }
   let from = "";
 
   const root = document.createElement("div");

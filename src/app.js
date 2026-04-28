@@ -15,6 +15,7 @@ import { templatesRouter } from "./modules/templates/templates.routes.js";
 import { remindersRouter } from "./modules/reminders/reminders.routes.js";
 import { calendarRouter } from "./modules/calendar/calendar.routes.js";
 import { leadsRouter } from "./modules/leads/leads.routes.js";
+import { publicRouter } from "./modules/public/public.routes.js";
 
 export function createApp() {
   const app = express();
@@ -46,6 +47,7 @@ export function createApp() {
   app.use("/api/reminders", remindersRouter);
   app.use("/api/calendar", calendarRouter);
   app.use("/api/leads", leadsRouter);
+  app.use("/api/public", publicRouter);
   app.use("/api/businesses", businessRouter);
   app.use("/api/appointments", appointmentRouter);
   app.use("/api/conversations", conversationRouter);
