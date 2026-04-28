@@ -1,6 +1,7 @@
 import { prisma } from "../../prisma.js";
 import { generateBusinessReply } from "../ai/openaiService.js";
 import { addMinutes, availabilityMessage, checkAppointmentAvailability } from "../appointments/availability.js";
+import { ensureDemoBusiness, isDemoBusinessId } from "../demoBusinesses.js";
 
 const scheduleKeywords = ["cita", "agendar", "reservar", "agenda", "turno"];
 const cancelAppointmentKeywords = ["cancelar cita", "cancela mi cita", "cancelar mi cita", "anular cita"];
@@ -253,6 +254,7 @@ async function loadBusiness(businessId) {
     services: { where: { active: true }, orderBy: { createdAt: "asc" } },
     faqs: { where: { active: true }, orderBy: { createdAt: "asc" } }
   };
+  if (isDemoBusinessId(businessId)) return ensureDemoBusiness(businessId, include);
   return businessId
     ? prisma.business.findUnique({ where: { id: businessId }, include })
     : prisma.business.findFirst({ include, orderBy: { createdAt: "asc" } });

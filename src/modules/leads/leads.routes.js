@@ -2,6 +2,7 @@ import { Router } from "express";
 import { z } from "zod";
 import { prisma } from "../../prisma.js";
 import { notifyLead } from "./leadNotifier.js";
+import { ensureDemoBusiness, isDemoBusinessId } from "../demoBusinesses.js";
 
 export const leadsRouter = Router();
 
@@ -15,6 +16,7 @@ const leadSchema = z.object({
 });
 
 async function loadBusiness(businessId) {
+  if (isDemoBusinessId(businessId)) return ensureDemoBusiness(businessId);
   return businessId
     ? prisma.business.findUnique({ where: { id: businessId } })
     : prisma.business.findFirst({ orderBy: { createdAt: "asc" } });
