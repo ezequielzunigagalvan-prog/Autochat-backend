@@ -86,6 +86,19 @@
   function closePanel() {
     panel.style.display = "none";
     toggle.style.display = "block";
+    resetWidget();
+  }
+
+  function resetWidget() {
+    from = "";
+    messages.innerHTML = "";
+    leadError.textContent = "";
+    leadForm.style.display = "grid";
+    chat.style.display = "none";
+    root.querySelector("#ac-name").value = defaults.name;
+    root.querySelector("#ac-phone").value = defaults.phone;
+    root.querySelector("#ac-email").value = defaults.email;
+    input.value = defaults.prompt;
   }
 
   function addMessage(text, who) {

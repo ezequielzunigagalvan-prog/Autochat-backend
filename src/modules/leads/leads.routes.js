@@ -39,6 +39,11 @@ leadsRouter.post("/", async (req, res, next) => {
         name: parsed.name,
         email: parsed.email,
         notes: parsed.notes,
+        conversationState: "idle",
+        pendingServiceId: null,
+        pendingStartsAt: null,
+        pendingData: "{}",
+        botPaused: false,
         leadStatus: "nuevo",
         needsHuman: true,
         lastIntent: "lead_captured"

@@ -81,9 +81,10 @@ export async function ensureDemoBusiness(businessId, include) {
     }
   });
 
-  const [serviceCount, faqCount] = await Promise.all([
+  const [serviceCount, faqCount, staffCount] = await Promise.all([
     prisma.service.count({ where: { businessId } }),
-    prisma.faq.count({ where: { businessId } })
+    prisma.faq.count({ where: { businessId } }),
+    prisma.staff.count({ where: { businessId } })
   ]);
 
   if (serviceCount === 0) {
@@ -96,6 +97,22 @@ export async function ensureDemoBusiness(businessId, include) {
     await prisma.faq.createMany({
       data: demo.faqs.map(([question, answer]) => ({ businessId, question, answer }))
     });
+  }
+
+  if (staffCount === 0) {
+    const services = await prisma.service.findMany({ where: { businessId } });
+    const staff = await prisma.staff.create({
+      data: {
+        businessId,
+        name: demo.niche === "clinica_dental" ? "Equipo dental demo" : "Equipo demo"
+      }
+    });
+    if (services.length) {
+      await prisma.staffService.createMany({
+        data: services.map((service) => ({ staffId: staff.id, serviceId: service.id })),
+        skipDuplicates: true
+      });
+    }
   }
 
   if (!include) return business;

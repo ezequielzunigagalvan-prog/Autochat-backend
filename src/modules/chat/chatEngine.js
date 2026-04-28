@@ -3,12 +3,23 @@ import { generateBusinessReply } from "../ai/openaiService.js";
 import { addMinutes, availabilityMessage, checkAppointmentAvailability } from "../appointments/availability.js";
 import { ensureDemoBusiness, isDemoBusinessId } from "../demoBusinesses.js";
 
-const scheduleKeywords = ["cita", "agendar", "reservar", "agenda", "turno"];
+const scheduleKeywords = [
+  "cita",
+  "agendar",
+  "programar",
+  "reservar",
+  "apartar",
+  "agenda",
+  "turno",
+  "disponibilidad",
+  "horario disponible"
+];
 const cancelAppointmentKeywords = ["cancelar cita", "cancela mi cita", "cancelar mi cita", "anular cita"];
 const rescheduleKeywords = ["reagendar", "reprogramar", "cambiar cita", "mover cita", "cambiar mi cita"];
 const humanKeywords = ["humano", "asesor", "persona", "llamar", "queja"];
 const cancelKeywords = ["cancelar", "reiniciar", "empezar de nuevo", "salir", "reset"];
 const PROJECTS_DEMO_ID = "demo_proyectos";
+const APPOINTMENT_DEMO_IDS = ["demo_barberia", "demo_dental"];
 
 function normalize(value) {
   return (value || "")
@@ -868,7 +879,7 @@ export async function answerMessage({ businessId, from, text, channel = "web_or_
 
   let reply = fallback.reply;
 
-  if (["general", "faq"].includes(fallback.intent)) {
+  if (["general", "faq"].includes(fallback.intent) && !APPOINTMENT_DEMO_IDS.includes(business.id)) {
     try {
       const aiReply = await generateBusinessReply({
         business,
