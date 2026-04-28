@@ -34,8 +34,8 @@ export function createApp() {
   });
 
   app.get("/admin", (_req, res) => {
-    const adminUrl = process.env.ADMIN_URL || process.env.FRONTEND_ORIGIN;
-    if (adminUrl) return res.redirect(`${adminUrl.replace(/\/$/, "")}/admin`);
+    const adminUrl = process.env.ADMIN_URL || (process.env.FRONTEND_ORIGIN ? `${process.env.FRONTEND_ORIGIN.replace(/\/$/, "")}/#admin` : "");
+    if (adminUrl) return res.redirect(adminUrl);
     return res.redirect("/public/landing.html");
   });
 

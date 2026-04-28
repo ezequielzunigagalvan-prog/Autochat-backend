@@ -60,19 +60,28 @@ function projectDiagnosticRequest() {
 }
 
 function projectDiagnosticExample(text) {
+  const summary = text.slice(0, 180);
   return [
-    "Perfecto. Con esa información, el asistente podría funcionar así:",
+    "Perfecto. Con esa informaci?n, tu asistente podr?a funcionar as?:",
     "",
-    "Cliente: Hola, quiero información.",
-    "Bot: Claro. ¿Qué servicio te interesa y para qué día lo necesitas?",
-    "Cliente: " + text.slice(0, 120),
-    "Bot: Perfecto. Te puedo pedir nombre, teléfono, servicio de interés y horario preferido. Después dejo el lead en el panel con estado \"nuevo\" para que el negocio le dé seguimiento.",
+    "Resumen detectado:",
+    summary,
     "",
-    "También se pueden cargar respuestas automáticas para precios, horarios, ubicación, políticas y preguntas frecuentes. Si quieres, puedo pasar este diagnóstico a una persona para aterrizar el flujo completo.",
-    "Si te interesa implementarlo, deja tu nombre, negocio y teléfono. Con eso te podemos contactar para revisar el proyecto y darte una propuesta."
+    "Ejemplo de conversaci?n:",
+    "Cliente: Hola, quiero informaci?n.",
+    "Bot: Claro. ?Qu? servicio te interesa y para cu?ndo lo necesitas?",
+    "Cliente: Quiero saber precios y disponibilidad.",
+    "Bot: Perfecto. Te pido nombre, tel?fono, servicio de inter?s y horario preferido. Con eso dejo tu solicitud registrada para seguimiento.",
+    "",
+    "Qu? automatizar?a:",
+    "- Respuestas sobre servicios, precios, horarios y ubicaci?n.",
+    "- Captura de nombre, tel?fono, necesidad y horario preferido.",
+    "- Clasificaci?n del lead como nuevo, interesado o requiere atenci?n humana.",
+    "- Registro de la conversaci?n completa en el panel.",
+    "",
+    "Si te interesa implementarlo, deja tu nombre, negocio y tel?fono. Con eso te podemos contactar para revisar el proyecto y darte una propuesta."
   ].join("\n");
 }
-
 function formatServices(services) {
   return services
     .map((service, index) => `${index + 1}. ${service.name} (${service.durationMinutes} min, $${service.price})`)

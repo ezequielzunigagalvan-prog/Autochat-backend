@@ -9,9 +9,10 @@
   let from = "";
 
   const root = document.createElement("div");
+  root.id = "autochat-widget-root";
   root.style.cssText = "position:fixed;right:18px;bottom:18px;z-index:99999;font-family:system-ui,-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif";
   root.innerHTML = `
-    <button id="ac-toggle" style="width:58px;height:58px;border-radius:50%;border:0;background:#294139;color:#fff;font-weight:800;box-shadow:0 10px 24px rgba(0,0,0,.18);cursor:pointer">Chat</button>
+    <button id="ac-toggle" style="width:78px;height:58px;border-radius:999px;border:0;background:#294139;color:#fff;font-weight:800;box-shadow:0 10px 24px rgba(0,0,0,.18);cursor:pointer">Chat</button>
     <section id="ac-panel" style="display:none;width:340px;max-width:calc(100vw - 36px);height:480px;background:#fff;border:1px solid #dfe5dc;border-radius:8px;box-shadow:0 18px 45px rgba(0,0,0,.18);overflow:hidden">
       <header style="background:#294139;color:#fff;padding:12px 14px;font-weight:800;display:flex;align-items:center;justify-content:space-between">
         <span>Asistente</span>
@@ -67,6 +68,14 @@
 
   toggle.addEventListener("click", openPanel);
   close.addEventListener("click", closePanel);
+  window.AutoChatWidget = { open: openPanel, close: closePanel };
+  document.addEventListener("click", (event) => {
+    const trigger = event.target.closest?.("[data-open-chat], .js-open-chat, a[href='#chat']");
+    if (!trigger) return;
+    event.preventDefault();
+    openPanel();
+  });
+  if (window.location.hash === "#chat") openPanel();
 
   leadForm.addEventListener("submit", async (event) => {
     event.preventDefault();
