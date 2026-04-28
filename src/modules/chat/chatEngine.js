@@ -7,6 +7,7 @@ const cancelAppointmentKeywords = ["cancelar cita", "cancela mi cita", "cancelar
 const rescheduleKeywords = ["reagendar", "reprogramar", "cambiar cita", "mover cita", "cambiar mi cita"];
 const humanKeywords = ["humano", "asesor", "persona", "llamar", "queja"];
 const cancelKeywords = ["cancelar", "reiniciar", "empezar de nuevo", "salir", "reset"];
+const PROJECTS_DEMO_ID = "demo_proyectos";
 
 function normalize(value) {
   return (value || "")
@@ -19,6 +20,57 @@ function normalize(value) {
 function includesAny(text, keywords) {
   const normalized = normalize(text);
   return keywords.some((keyword) => normalized.includes(normalize(keyword)));
+}
+
+function hasProjectDiagnosticInfo(text) {
+  const normalized = normalize(text);
+  const signals = [
+    "negocio",
+    "servicio",
+    "horario",
+    "cliente",
+    "cita",
+    "cotizacion",
+    "venta",
+    "precio",
+    "whatsapp",
+    "instagram",
+    "pagina",
+    "consultorio",
+    "barberia",
+    "estetica",
+    "taller",
+    "clinica",
+    "inmobiliaria"
+  ];
+  return signals.filter((signal) => normalized.includes(signal)).length >= 2 || text.length > 80;
+}
+
+function projectDiagnosticRequest() {
+  return [
+    "Para armarte un ejemplo aterrizado, cuéntame esto de tu negocio:",
+    "",
+    "1. ¿Qué vendes o qué servicio das?",
+    "2. ¿Qué datos necesitas pedirle al cliente?",
+    "3. ¿Qué preguntas te hacen seguido?",
+    "4. ¿Quieres recibir citas, cotizaciones o solo leads?",
+    "",
+    "Ejemplo: tengo una estética, atiendo lunes a sábado, hago uñas y faciales, quiero capturar nombre, WhatsApp, servicio y horario."
+  ].join("\n");
+}
+
+function projectDiagnosticExample(text) {
+  return [
+    "Perfecto. Con esa información, el asistente podría funcionar así:",
+    "",
+    "Cliente: Hola, quiero información.",
+    "Bot: Claro. ¿Qué servicio te interesa y para qué día lo necesitas?",
+    "Cliente: " + text.slice(0, 120),
+    "Bot: Perfecto. Te puedo pedir nombre, teléfono, servicio de interés y horario preferido. Después dejo el lead en el panel con estado \"nuevo\" para que el negocio le dé seguimiento.",
+    "",
+    "También se pueden cargar respuestas automáticas para precios, horarios, ubicación, políticas y preguntas frecuentes. Si quieres, puedo pasar este diagnóstico a una persona para aterrizar el flujo completo.",
+    "Si te interesa implementarlo, deja tu nombre, negocio y teléfono. Con eso te podemos contactar para revisar el proyecto y darte una propuesta."
+  ].join("\n");
 }
 
 function formatServices(services) {
@@ -394,6 +446,51 @@ async function buildStateReply({ business, customer, text }) {
       status: "needs_human",
       reply: "Gracias por escribir. Una persona del equipo está atendiendo esta conversación y te respondera pronto."
     };
+  }
+
+  if (business.id === PROJECTS_DEMO_ID) {
+    if (customer.conversationState === "project_diagnostic") {
+      await prisma.customer.update({
+        where: { id: customer.id },
+        data: {
+          conversationState: "idle",
+          leadStatus: "contactado",
+          notes: [customer.notes, `Diagnóstico web: ${text}`].filter(Boolean).join("\n\n")
+        }
+      });
+      return {
+        intent: "project_diagnostic_example",
+        status: "auto_replied",
+        reply: projectDiagnosticExample(text)
+      };
+    }
+
+    if (["idle", "", null].includes(customer.conversationState)) {
+      if (!hasProjectDiagnosticInfo(text)) {
+        await prisma.customer.update({
+          where: { id: customer.id },
+          data: { conversationState: "project_diagnostic", lastIntent: "project_diagnostic_request" }
+        });
+        return {
+          intent: "project_diagnostic_request",
+          status: "auto_replied",
+          reply: projectDiagnosticRequest()
+        };
+      }
+
+      await prisma.customer.update({
+        where: { id: customer.id },
+        data: {
+          leadStatus: "contactado",
+          notes: [customer.notes, `Diagnóstico web: ${text}`].filter(Boolean).join("\n\n")
+        }
+      });
+      return {
+        intent: "project_diagnostic_example",
+        status: "auto_replied",
+        reply: projectDiagnosticExample(text)
+      };
+    }
   }
 
   if (normalize(text) === "estado") {
