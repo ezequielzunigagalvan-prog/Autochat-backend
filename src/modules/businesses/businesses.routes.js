@@ -8,7 +8,7 @@ businessRouter.use(requireAuth);
 
 const businessSchema = z.object({
   name: z.string().min(2),
-  niche: z.enum(["barberia", "estetica", "clinica_dental", "industrial", "servicios", "proyectos"]),
+  niche: z.enum(["barberia", "estetica", "clinica_dental", "industrial", "servicios", "proyectos", "salud", "inmobiliaria", "educacion"]),
   phone: z.string().optional().default(""),
   address: z.string().optional().default(""),
   hours: z.string().optional().default(""),
@@ -38,7 +38,7 @@ const businessSchema = z.object({
 
 const businessUpdateSchema = z.object({
   name: z.string().min(2).optional(),
-  niche: z.enum(["barberia", "estetica", "clinica_dental", "industrial", "servicios", "proyectos"]).optional(),
+  niche: z.enum(["barberia", "estetica", "clinica_dental", "industrial", "servicios", "proyectos", "salud", "inmobiliaria", "educacion"]).optional(),
   phone: z.string().optional(),
   address: z.string().optional(),
   hours: z.string().optional(),

@@ -20,6 +20,8 @@ const humanKeywords = ["humano", "asesor", "persona", "llamar", "queja"];
 const cancelKeywords = ["cancelar", "reiniciar", "empezar de nuevo", "salir", "reset"];
 const PROJECTS_DEMO_ID = "demo_proyectos";
 const APPOINTMENT_DEMO_IDS = ["demo_barberia", "demo_dental"];
+const QUOTE_BASED_NICHES = ["industrial", "servicios", "proyectos", "inmobiliaria", "educacion"];
+const quoteKeywords = ["cotizar", "cotizacion", "cotización", "precio", "presupuesto", "propuesta", "servicio", "informacion", "información"];
 
 function normalize(value) {
   return (value || "")
@@ -32,6 +34,28 @@ function normalize(value) {
 function includesAny(text, keywords) {
   const normalized = normalize(text);
   return keywords.some((keyword) => normalized.includes(normalize(keyword)));
+}
+
+function quoteRequestReply(business) {
+  if (business.niche === "industrial") {
+    return [
+      "Claro. Para preparar una cotización necesito estos datos:",
+      "",
+      "1. Empresa y nombre de contacto.",
+      "2. Servicio requerido.",
+      "3. Tipo de equipo o sistema.",
+      "4. Capacidad aproximada en litros.",
+      "5. Ubicación de la planta.",
+      "6. Urgencia: programado o urgente.",
+      "",
+      "Con eso dejo la solicitud registrada para que el equipo la revise y te contacte."
+    ].join("\n");
+  }
+
+  return [
+    "Claro. Para ayudarte con una cotización necesito nombre, teléfono, servicio requerido, ubicación y detalles del proyecto.",
+    "Con esa información dejo la solicitud registrada para seguimiento."
+  ].join("\n");
 }
 
 function hasProjectDiagnosticInfo(text) {
@@ -94,9 +118,17 @@ function projectDiagnosticExample(text) {
     "Si te interesa implementarlo, deja tu nombre, negocio y teléfono. Con eso te podemos contactar para revisar el proyecto y darte una propuesta."
   ].join("\n");
 }
-function formatServices(services) {
+function formatServices(services, business = null) {
+  const quoteBasedNiches = ["industrial", "servicios", "proyectos", "inmobiliaria", "educacion"];
+  const quoteBased = quoteBasedNiches.includes(business?.niche);
   return services
-    .map((service, index) => `${index + 1}. ${service.name} (${service.durationMinutes} min, $${service.price})`)
+    .map((service, index) => {
+      const details = [];
+      if (!quoteBased && service.durationMinutes) details.push(`${service.durationMinutes} min`);
+      if (service.price > 0) details.push(`$${service.price}`);
+      if (quoteBased || service.price === 0) details.push("por cotizar");
+      return `${index + 1}. ${service.name}${details.length ? ` (${details.join(", ")})` : ""}`;
+    })
     .join("\n");
 }
 
@@ -721,13 +753,21 @@ async function buildStateReply({ business, customer, text }) {
     };
   }
 
+  if (QUOTE_BASED_NICHES.includes(business.niche) && includesAny(text, quoteKeywords)) {
+    return {
+      intent: "quote_request",
+      status: "auto_replied",
+      reply: quoteRequestReply(business)
+    };
+  }
+
   if (customer.conversationState === "scheduling_service") {
     const service = findServiceFromText(business.services, text);
     if (!service) {
       return {
         intent: "scheduling_service",
         status: "scheduling",
-        reply: `Para agendar, dime el número o nombre del servicio:\n${formatServices(business.services)}`
+        reply: `Para ayudarte, dime el número o nombre del servicio:\n${formatServices(business.services, business)}`
       };
     }
 
@@ -767,7 +807,7 @@ async function buildStateReply({ business, customer, text }) {
       return {
         intent: "scheduling_service",
         status: "scheduling",
-        reply: `Me falta el servicio. Dime el número o nombre:\n${formatServices(business.services)}`
+        reply: `Me falta el servicio. Dime el número o nombre:\n${formatServices(business.services, business)}`
       };
     }
 
@@ -842,7 +882,7 @@ async function buildStateReply({ business, customer, text }) {
       : {
           intent: "scheduling_service",
           status: "scheduling",
-          reply: `Con gusto te ayudo a agendar. Estos son nuestros servicios:\n${formatServices(business.services)}\n\nDime el número o nombre del servicio.`
+          reply: `Con gusto te ayudo. Estos son nuestros servicios:\n${formatServices(business.services, business)}\n\nDime el número o nombre del servicio.`
         };
   }
 

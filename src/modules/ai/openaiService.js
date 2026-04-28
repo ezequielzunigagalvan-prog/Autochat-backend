@@ -6,8 +6,12 @@ function getClient() {
 }
 
 function buildBusinessContext(business) {
+  const quoteBased = ["industrial", "servicios", "proyectos", "inmobiliaria", "educacion"].includes(business.niche);
   const services = business.services
-    .map((service) => `- ${service.name}: ${service.durationMinutes} min, $${service.price}`)
+    .map((service) => {
+      if (quoteBased || service.price === 0) return `- ${service.name}: por cotizar según condiciones del cliente`;
+      return `- ${service.name}: ${service.durationMinutes} min, $${service.price}`;
+    })
     .join("\n");
   const faqs = business.faqs
     .map((faq) => `- ${faq.question}: ${faq.answer}`)
