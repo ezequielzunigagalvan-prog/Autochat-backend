@@ -19,7 +19,7 @@ import { leadsRouter } from "./modules/leads/leads.routes.js";
 export function createApp() {
   const app = express();
 
-  app.use(cors({ origin: process.env.FRONTEND_ORIGIN || true }));
+  app.use(cors({ origin: true }));
   app.use(express.urlencoded({ extended: false }));
   app.use(express.json({ limit: "1mb" }));
   app.use("/public", express.static("public"));

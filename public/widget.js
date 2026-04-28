@@ -1,7 +1,11 @@
 (function () {
   const script = document.currentScript;
   const businessId = script?.dataset.businessId || "";
-  const apiUrl = script?.dataset.apiUrl || "http://localhost:4000";
+  const configuredApiUrl = script?.dataset.apiUrl || "";
+  const apiUrl =
+    configuredApiUrl && !(configuredApiUrl.includes("localhost") && !window.location.hostname.includes("localhost"))
+      ? configuredApiUrl.replace(/\/$/, "")
+      : window.location.origin;
   let from = "";
 
   const root = document.createElement("div");
