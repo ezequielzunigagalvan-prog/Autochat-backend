@@ -62,24 +62,24 @@ function projectDiagnosticRequest() {
 function projectDiagnosticExample(text) {
   const summary = text.slice(0, 180);
   return [
-    "Perfecto. Con esa informaci?n, tu asistente podr?a funcionar as?:",
+    "Perfecto. Con esa información, tu asistente podría funcionar así:",
     "",
     "Resumen detectado:",
     summary,
     "",
-    "Ejemplo de conversaci?n:",
-    "Cliente: Hola, quiero informaci?n.",
-    "Bot: Claro. ?Qu? servicio te interesa y para cu?ndo lo necesitas?",
+    "Ejemplo de conversación:",
+    "Cliente: Hola, quiero información.",
+    "Bot: Claro. ¿Qué servicio te interesa y para cuándo lo necesitas?",
     "Cliente: Quiero saber precios y disponibilidad.",
-    "Bot: Perfecto. Te pido nombre, tel?fono, servicio de inter?s y horario preferido. Con eso dejo tu solicitud registrada para seguimiento.",
+    "Bot: Perfecto. Te pido nombre, teléfono, servicio de interés y horario preferido. Con eso dejo tu solicitud registrada para seguimiento.",
     "",
-    "Qu? automatizar?a:",
-    "- Respuestas sobre servicios, precios, horarios y ubicaci?n.",
-    "- Captura de nombre, tel?fono, necesidad y horario preferido.",
-    "- Clasificaci?n del lead como nuevo, interesado o requiere atenci?n humana.",
-    "- Registro de la conversaci?n completa en el panel.",
+    "Qué automatizaría:",
+    "- Respuestas sobre servicios, precios, horarios y ubicación.",
+    "- Captura de nombre, teléfono, necesidad y horario preferido.",
+    "- Clasificación del lead como nuevo, interesado o requiere atención humana.",
+    "- Registro de la conversación completa en el panel.",
     "",
-    "Si te interesa implementarlo, deja tu nombre, negocio y tel?fono. Con eso te podemos contactar para revisar el proyecto y darte una propuesta."
+    "Si te interesa implementarlo, deja tu nombre, negocio y teléfono. Con eso te podemos contactar para revisar el proyecto y darte una propuesta."
   ].join("\n");
 }
 function formatServices(services) {

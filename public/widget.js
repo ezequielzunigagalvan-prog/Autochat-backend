@@ -6,6 +6,36 @@
     configuredApiUrl && !(configuredApiUrl.includes("localhost") && !window.location.hostname.includes("localhost"))
       ? configuredApiUrl.replace(/\/$/, "")
       : window.location.origin;
+  const widgetDefaults = {
+    demo_barberia: {
+      name: "Cliente Barbería",
+      phone: "+525551111111",
+      email: "cliente@demo.com",
+      prompt: "Quiero un corte clásico mañana por la tarde",
+      title: "Prueba esta demo",
+      intro: "Los campos vienen llenos para que puedas probar rápido.",
+      hello: "Hola. Soy el asistente de la barbería demo. Puedo ayudarte con servicios, precios, horarios y solicitudes de cita."
+    },
+    demo_dental: {
+      name: "Paciente Demo",
+      phone: "+525552222222",
+      email: "paciente@demo.com",
+      prompt: "Quiero una valoración dental esta semana",
+      title: "Prueba esta demo",
+      intro: "Los campos vienen llenos para que puedas probar rápido.",
+      hello: "Hola. Soy el asistente de la clínica dental demo. Puedo orientarte con tratamientos, horarios y solicitudes de cita."
+    },
+    demo_proyectos: {
+      name: "Alejandro",
+      phone: "+525553333333",
+      email: "contacto@negocio.com",
+      prompt: "Tengo una estética, atiendo lunes a sábado, hago uñas y faciales, quiero capturar nombre, WhatsApp, servicio y horario.",
+      title: "Recibe un diagnóstico de tu negocio",
+      intro: "Deja tus datos y cuéntame tu proyecto para generar un ejemplo.",
+      hello: "Hola. Para preparar tu diagnóstico, cuéntame qué negocio tienes, tus servicios, horarios, qué datos necesitas pedir y qué quieres automatizar."
+    }
+  };
+  const defaults = widgetDefaults[businessId] || widgetDefaults.demo_proyectos;
   let from = "";
 
   const root = document.createElement("div");
@@ -19,18 +49,18 @@
         <button id="ac-close" type="button" style="border:0;background:transparent;color:#fff;font-size:18px;cursor:pointer">x</button>
       </header>
       <form id="ac-lead" style="height:424px;padding:14px;display:grid;align-content:center;gap:10px">
-        <strong style="font-size:18px;color:#18211f">Te ayudo en un minuto</strong>
-        <span style="color:#65736c;font-size:14px">Deja tus datos para responderte y dar seguimiento a tu solicitud.</span>
-        <input id="ac-name" placeholder="Nombre" required style="min-height:42px;border:1px solid #ccd5ce;border-radius:8px;padding:0 10px" />
-        <input id="ac-phone" placeholder="Teléfono / WhatsApp" required style="min-height:42px;border:1px solid #ccd5ce;border-radius:8px;padding:0 10px" />
-        <input id="ac-email" placeholder="Correo opcional" type="email" style="min-height:42px;border:1px solid #ccd5ce;border-radius:8px;padding:0 10px" />
+        <strong style="font-size:18px;color:#18211f">${defaults.title}</strong>
+        <span style="color:#65736c;font-size:14px">${defaults.intro}</span>
+        <input id="ac-name" value="${defaults.name}" placeholder="Nombre" required style="min-height:42px;border:1px solid #ccd5ce;border-radius:8px;padding:0 10px" />
+        <input id="ac-phone" value="${defaults.phone}" placeholder="Teléfono / WhatsApp" required style="min-height:42px;border:1px solid #ccd5ce;border-radius:8px;padding:0 10px" />
+        <input id="ac-email" value="${defaults.email}" placeholder="Correo opcional" type="email" style="min-height:42px;border:1px solid #ccd5ce;border-radius:8px;padding:0 10px" />
         <button style="min-height:44px;border:0;border-radius:8px;background:#c66d42;color:#fff;font-weight:800;cursor:pointer">Iniciar chat</button>
         <small id="ac-lead-error" style="color:#a23b27;min-height:16px"></small>
       </form>
       <div id="ac-chat" style="display:none">
         <div id="ac-messages" style="height:356px;overflow:auto;padding:12px;display:grid;gap:8px"></div>
         <form id="ac-form" style="display:grid;grid-template-columns:1fr 48px;gap:8px;padding:10px;border-top:1px solid #e2e6df">
-          <input id="ac-input" placeholder="Escribe..." style="min-height:40px;border:1px solid #ccd5ce;border-radius:8px;padding:0 10px" />
+          <input id="ac-input" value="${defaults.prompt}" placeholder="Escribe..." style="min-height:40px;border:1px solid #ccd5ce;border-radius:8px;padding:0 10px" />
           <button style="border:0;border-radius:8px;background:#c66d42;color:#fff;cursor:pointer">Ir</button>
         </form>
       </div>
@@ -75,7 +105,12 @@
     event.preventDefault();
     openPanel();
   });
-  if (window.location.hash === "#chat") openPanel();
+  window.addEventListener("hashchange", () => {
+    if (window.location.hash === "#chat") openPanel();
+  });
+  window.setTimeout(() => {
+    if (window.location.hash === "#chat") openPanel();
+  }, 0);
 
   leadForm.addEventListener("submit", async (event) => {
     event.preventDefault();
@@ -103,7 +138,7 @@
       from = body.from;
       leadForm.style.display = "none";
       chat.style.display = "block";
-      addMessage(`Hola ${name}. Puedo ayudarte con información, servicios, precios y solicitudes de cita.`, "bot");
+      addMessage(defaults.hello, "bot");
     } catch (error) {
       leadError.textContent = error.message || "No se pudo iniciar el chat.";
     }
