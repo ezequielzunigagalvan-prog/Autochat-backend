@@ -23,6 +23,7 @@ export function createApp() {
   app.use(express.urlencoded({ extended: false }));
   app.use(express.json({ limit: "1mb" }));
   app.use("/public", express.static("public"));
+  app.use(express.static("public"));
 
   app.get("/health", (_req, res) => {
     res.json({ ok: true, service: "autochat-backend" });
