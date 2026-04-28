@@ -1,0 +1,233 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model Business {
+  id           String         @id @default(cuid())
+  name         String
+  niche        String
+  phone        String         @default("")
+  address      String         @default("")
+  hours        String         @default("")
+  tone         String         @default("amable y profesional")
+  whatsappSender String       @default("")
+  whatsappProvider String     @default("none")
+  metaPhoneNumberId String    @default("")
+  metaAccessToken String      @default("")
+  metaVerifyToken String      @default("")
+  metaBusinessAccountId String @default("")
+  dialog360ApiKey String      @default("")
+  dialog360ChannelId String   @default("")
+  timezone     String         @default("America/Mexico_City")
+  weeklySchedule String       @default("{\"1\":[{\"start\":\"10:00\",\"end\":\"20:00\"}],\"2\":[{\"start\":\"10:00\",\"end\":\"20:00\"}],\"3\":[{\"start\":\"10:00\",\"end\":\"20:00\"}],\"4\":[{\"start\":\"10:00\",\"end\":\"20:00\"}],\"5\":[{\"start\":\"10:00\",\"end\":\"20:00\"}],\"6\":[{\"start\":\"10:00\",\"end\":\"20:00\"}],\"0\":[]}")
+  bookingWindowDays Int      @default(60)
+  cancellationMinHours Int   @default(2)
+  defaultBufferMinutes Int   @default(10)
+  holdMinutes   Int          @default(10)
+  createdAt    DateTime       @default(now())
+  updatedAt    DateTime       @updatedAt
+  services     Service[]
+  faqs         Faq[]
+  staff         Staff[]
+  availabilityBlocks AvailabilityBlock[]
+  customers    Customer[]
+  conversations Conversation[]
+  appointments Appointment[]
+  members      BusinessMember[]
+  messageTemplates MessageTemplate[]
+  reminders    Reminder[]
+}
+
+model User {
+  id           String           @id @default(cuid())
+  name         String
+  email        String           @unique
+  passwordHash String
+  createdAt    DateTime         @default(now())
+  updatedAt    DateTime         @updatedAt
+  sessions     Session[]
+  memberships  BusinessMember[]
+}
+
+model Session {
+  id        String   @id @default(cuid())
+  userId    String
+  tokenHash String   @unique
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model BusinessMember {
+  id         String   @id @default(cuid())
+  businessId String
+  userId     String
+  role       String   @default("owner")
+  createdAt  DateTime @default(now())
+  business   Business @relation(fields: [businessId], references: [id], onDelete: Cascade)
+  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([businessId, userId])
+}
+
+model Service {
+  id              String        @id @default(cuid())
+  businessId      String
+  name            String
+  durationMinutes Int
+  price           Int           @default(0)
+  bufferMinutes   Int?
+  active          Boolean       @default(true)
+  createdAt       DateTime      @default(now())
+  updatedAt       DateTime      @updatedAt
+  business        Business      @relation(fields: [businessId], references: [id], onDelete: Cascade)
+  staffServices   StaffService[]
+  appointments    Appointment[]
+}
+
+model Staff {
+  id              String        @id @default(cuid())
+  businessId      String
+  name            String
+  active          Boolean       @default(true)
+  createdAt       DateTime      @default(now())
+  updatedAt       DateTime      @updatedAt
+  business        Business      @relation(fields: [businessId], references: [id], onDelete: Cascade)
+  staffServices   StaffService[]
+  appointments    Appointment[]
+  availabilityBlocks AvailabilityBlock[]
+}
+
+model StaffService {
+  id        String  @id @default(cuid())
+  staffId   String
+  serviceId String
+  staff     Staff   @relation(fields: [staffId], references: [id], onDelete: Cascade)
+  service   Service @relation(fields: [serviceId], references: [id], onDelete: Cascade)
+
+  @@unique([staffId, serviceId])
+}
+
+model AvailabilityBlock {
+  id          String   @id @default(cuid())
+  businessId  String
+  staffId     String?
+  startsAt    DateTime
+  endsAt      DateTime
+  reason      String   @default("")
+  type        String   @default("manual_block")
+  createdAt   DateTime @default(now())
+  business    Business @relation(fields: [businessId], references: [id], onDelete: Cascade)
+  staff       Staff?   @relation(fields: [staffId], references: [id], onDelete: Cascade)
+}
+
+model Faq {
+  id         String   @id @default(cuid())
+  businessId String
+  question   String
+  answer     String
+  active     Boolean  @default(true)
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+  business   Business @relation(fields: [businessId], references: [id], onDelete: Cascade)
+}
+
+model Customer {
+  id            String         @id @default(cuid())
+  businessId    String
+  name          String
+  phone         String
+  email         String         @default("")
+  notes         String         @default("")
+  conversationState String     @default("idle")
+  botPaused     Boolean        @default(false)
+  needsHuman    Boolean        @default(false)
+  leadStatus     String        @default("nuevo")
+  lastIntent    String         @default("")
+  pendingServiceId  String?
+  pendingStartsAt   DateTime?
+  pendingData       String     @default("{}")
+  createdAt     DateTime       @default(now())
+  updatedAt     DateTime       @updatedAt
+  business      Business       @relation(fields: [businessId], references: [id], onDelete: Cascade)
+  conversations Conversation[]
+  appointments  Appointment[]
+  reminders     Reminder[]
+
+  @@unique([businessId, phone])
+}
+
+model Conversation {
+  id           String    @id @default(cuid())
+  businessId   String
+  customerId   String?
+  channel      String    @default("web")
+  from         String
+  inboundText  String
+  outboundText String
+  status       String    @default("auto_replied")
+  direction    String    @default("inbound")
+  handledBy    String    @default("bot")
+  createdAt    DateTime  @default(now())
+  business     Business  @relation(fields: [businessId], references: [id], onDelete: Cascade)
+  customer     Customer? @relation(fields: [customerId], references: [id], onDelete: SetNull)
+}
+
+model Appointment {
+  id            String   @id @default(cuid())
+  businessId    String
+  customerId    String
+  serviceId     String
+  staffId       String?
+  customerName  String
+  customerPhone String
+  serviceName   String
+  startsAt      DateTime
+  status        String   @default("confirmed")
+  holdExpiresAt DateTime?
+  notes         String   @default("")
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+  business      Business @relation(fields: [businessId], references: [id], onDelete: Cascade)
+  customer      Customer @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  service       Service  @relation(fields: [serviceId], references: [id], onDelete: Restrict)
+  staff         Staff?   @relation(fields: [staffId], references: [id], onDelete: SetNull)
+  reminders     Reminder[]
+}
+
+model MessageTemplate {
+  id         String   @id @default(cuid())
+  businessId String
+  key        String
+  name       String
+  body       String
+  active     Boolean  @default(true)
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+  business   Business @relation(fields: [businessId], references: [id], onDelete: Cascade)
+
+  @@unique([businessId, key])
+}
+
+model Reminder {
+  id            String       @id @default(cuid())
+  businessId    String
+  customerId    String
+  appointmentId String?
+  type          String
+  channel       String       @default("whatsapp")
+  scheduledAt   DateTime
+  sentAt        DateTime?
+  status        String       @default("pending")
+  payload       String       @default("{}")
+  createdAt     DateTime     @default(now())
+  updatedAt     DateTime     @updatedAt
+  business      Business     @relation(fields: [businessId], references: [id], onDelete: Cascade)
+  customer      Customer     @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  appointment   Appointment? @relation(fields: [appointmentId], references: [id], onDelete: SetNull)
+}

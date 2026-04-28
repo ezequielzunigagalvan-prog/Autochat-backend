@@ -1,0 +1,256 @@
+:root {
+  color-scheme: light;
+  font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  background: #f6f3ee;
+  color: #171b18;
+}
+
+* { box-sizing: border-box; }
+html { scroll-behavior: smooth; }
+body { margin: 0; min-width: 320px; }
+a { color: inherit; text-decoration: none; }
+
+.hero {
+  min-height: 88vh;
+  display: grid;
+  align-items: end;
+  padding: 22px;
+  position: relative;
+  background:
+    linear-gradient(180deg, rgba(12, 14, 12, 0.16), rgba(12, 14, 12, 0.88)),
+    url("https://images.unsplash.com/photo-1621605815971-fbc98d665033?auto=format&fit=crop&w=1800&q=82") center / cover;
+  color: #fff;
+}
+
+.nav {
+  position: absolute;
+  top: 18px;
+  left: 22px;
+  right: 22px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+}
+
+.brand {
+  display: grid;
+  gap: 2px;
+}
+
+.brand strong {
+  font-size: 24px;
+}
+
+.brand span,
+.nav-links a {
+  color: rgba(255, 255, 255, 0.78);
+}
+
+.nav-links {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+  flex-wrap: wrap;
+}
+
+.nav-links a,
+.button {
+  min-height: 42px;
+  border-radius: 8px;
+  padding: 0 14px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 800;
+}
+
+.button {
+  background: #c77649;
+  color: #fff;
+}
+
+.button.dark {
+  background: #243b33;
+}
+
+.hero-content {
+  width: min(980px, 100%);
+  padding: 20vh 0 7vh;
+}
+
+.eyebrow {
+  display: inline-flex;
+  min-height: 34px;
+  align-items: center;
+  border-radius: 8px;
+  padding: 0 10px;
+  background: rgba(255, 255, 255, 0.14);
+  font-weight: 800;
+}
+
+h1 {
+  margin: 16px 0 14px;
+  font-size: clamp(46px, 7vw, 84px);
+  line-height: 0.98;
+  letter-spacing: 0;
+  max-width: 860px;
+}
+
+.hero-content p {
+  max-width: 680px;
+  margin: 0 0 24px;
+  color: rgba(255, 255, 255, 0.86);
+  font-size: 20px;
+  line-height: 1.5;
+}
+
+.hero-actions {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.section {
+  padding: 72px 22px;
+}
+
+.inner {
+  width: min(1120px, 100%);
+  margin: auto;
+}
+
+.section h2 {
+  margin: 0 0 12px;
+  font-size: clamp(30px, 4vw, 48px);
+}
+
+.lead {
+  max-width: 700px;
+  margin: 0 0 28px;
+  color: #5e645e;
+  line-height: 1.6;
+  font-size: 18px;
+}
+
+.services {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.service,
+.faq,
+.info-card {
+  background: #fff;
+  border: 1px solid #ddd6cc;
+  border-radius: 8px;
+  padding: 18px;
+  box-shadow: 0 12px 28px rgba(30, 27, 23, 0.06);
+}
+
+.service {
+  display: grid;
+  gap: 10px;
+}
+
+.service strong {
+  font-size: 18px;
+}
+
+.service span {
+  color: #61675f;
+  line-height: 1.4;
+}
+
+.service b {
+  font-size: 28px;
+  color: #243b33;
+}
+
+.band {
+  background: #243b33;
+  color: #f8f3ec;
+}
+
+.info-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.info-card {
+  background: rgba(255, 255, 255, 0.08);
+  border-color: rgba(255, 255, 255, 0.14);
+}
+
+.info-card span {
+  display: block;
+  color: rgba(248, 243, 236, 0.76);
+  margin-top: 8px;
+  line-height: 1.45;
+}
+
+.gallery {
+  display: grid;
+  grid-template-columns: 1.1fr 0.9fr;
+  gap: 14px;
+}
+
+.photo {
+  min-height: 360px;
+  border-radius: 8px;
+  background: url("https://images.unsplash.com/photo-1585747860715-2ba37e788b70?auto=format&fit=crop&w=1200&q=80") center / cover;
+}
+
+.faq-list {
+  display: grid;
+  gap: 10px;
+}
+
+.faq strong {
+  display: block;
+  margin-bottom: 8px;
+}
+
+.faq span {
+  color: #5e645e;
+  line-height: 1.5;
+}
+
+.cta {
+  text-align: center;
+}
+
+.cta .inner {
+  display: grid;
+  justify-items: center;
+}
+
+.footer {
+  padding: 24px 22px;
+  background: #171b18;
+  color: rgba(248, 243, 236, 0.76);
+}
+
+.footer .inner {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+@media (max-width: 860px) {
+  .hero { min-height: 86vh; }
+  .nav {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+  .hero-content { padding-top: 24vh; }
+  .services,
+  .info-grid,
+  .gallery {
+    grid-template-columns: 1fr;
+  }
+  .photo { min-height: 280px; }
+}

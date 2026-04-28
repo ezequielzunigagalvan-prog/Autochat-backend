@@ -1,0 +1,262 @@
+:root {
+  color-scheme: light;
+  font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  background: #f4f8f7;
+  color: #13201f;
+}
+
+* { box-sizing: border-box; }
+html { scroll-behavior: smooth; }
+body { margin: 0; min-width: 320px; }
+a { color: inherit; text-decoration: none; }
+
+.hero {
+  min-height: 88vh;
+  display: grid;
+  align-items: end;
+  padding: 22px;
+  position: relative;
+  background:
+    linear-gradient(180deg, rgba(9, 34, 37, 0.08), rgba(9, 34, 37, 0.82)),
+    url("https://images.unsplash.com/photo-1606811971618-4486d14f3f99?auto=format&fit=crop&w=1800&q=82") center / cover;
+  color: #fff;
+}
+
+.nav {
+  position: absolute;
+  top: 18px;
+  left: 22px;
+  right: 22px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+}
+
+.brand {
+  display: grid;
+  gap: 2px;
+}
+
+.brand strong {
+  font-size: 24px;
+}
+
+.brand span,
+.nav-links a {
+  color: rgba(255, 255, 255, 0.82);
+}
+
+.nav-links {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+  flex-wrap: wrap;
+}
+
+.nav-links a,
+.button {
+  min-height: 42px;
+  border-radius: 8px;
+  padding: 0 14px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 800;
+}
+
+.button {
+  background: #2f8f8a;
+  color: #fff;
+}
+
+.button.dark {
+  background: #163d42;
+}
+
+.hero-content {
+  width: min(980px, 100%);
+  padding: 20vh 0 7vh;
+}
+
+.eyebrow {
+  display: inline-flex;
+  min-height: 34px;
+  align-items: center;
+  border-radius: 8px;
+  padding: 0 10px;
+  background: rgba(255, 255, 255, 0.16);
+  font-weight: 800;
+}
+
+h1 {
+  margin: 16px 0 14px;
+  font-size: clamp(44px, 7vw, 82px);
+  line-height: 0.98;
+  letter-spacing: 0;
+  max-width: 900px;
+}
+
+.hero-content p {
+  max-width: 700px;
+  margin: 0 0 24px;
+  color: rgba(255, 255, 255, 0.88);
+  font-size: 20px;
+  line-height: 1.5;
+}
+
+.hero-actions {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.section {
+  padding: 72px 22px;
+}
+
+.inner {
+  width: min(1120px, 100%);
+  margin: auto;
+}
+
+.section h2 {
+  margin: 0 0 12px;
+  font-size: clamp(30px, 4vw, 48px);
+}
+
+.lead {
+  max-width: 720px;
+  margin: 0 0 28px;
+  color: #526765;
+  line-height: 1.6;
+  font-size: 18px;
+}
+
+.service-grid,
+.trust-grid,
+.faq-list {
+  display: grid;
+  gap: 12px;
+}
+
+.service-grid {
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+}
+
+.trust-grid {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.service,
+.trust,
+.faq {
+  background: #fff;
+  border: 1px solid #d8e5e3;
+  border-radius: 8px;
+  padding: 18px;
+  box-shadow: 0 12px 28px rgba(18, 52, 53, 0.06);
+}
+
+.service {
+  display: grid;
+  gap: 10px;
+}
+
+.service strong,
+.trust strong,
+.faq strong {
+  font-size: 18px;
+}
+
+.service span,
+.trust span,
+.faq span {
+  color: #526765;
+  line-height: 1.5;
+}
+
+.service b {
+  font-size: 28px;
+  color: #163d42;
+}
+
+.band {
+  background: #163d42;
+  color: #f4fbfa;
+}
+
+.band .lead {
+  color: rgba(244, 251, 250, 0.78);
+}
+
+.trust {
+  background: rgba(255, 255, 255, 0.08);
+  border-color: rgba(255, 255, 255, 0.14);
+}
+
+.trust span {
+  display: block;
+  margin-top: 8px;
+  color: rgba(244, 251, 250, 0.76);
+}
+
+.split {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 18px;
+  align-items: center;
+}
+
+.photo {
+  min-height: 390px;
+  border-radius: 8px;
+  background: url("https://images.unsplash.com/photo-1629909613654-28e377c37b09?auto=format&fit=crop&w=1200&q=82") center / cover;
+}
+
+.faq-list {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.faq strong {
+  display: block;
+  margin-bottom: 8px;
+}
+
+.cta {
+  text-align: center;
+}
+
+.cta .inner {
+  display: grid;
+  justify-items: center;
+}
+
+.footer {
+  padding: 24px 22px;
+  background: #13201f;
+  color: rgba(244, 251, 250, 0.78);
+}
+
+.footer .inner {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+@media (max-width: 860px) {
+  .hero { min-height: 86vh; }
+  .nav {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+  .hero-content { padding-top: 24vh; }
+  .service-grid,
+  .trust-grid,
+  .split,
+  .faq-list {
+    grid-template-columns: 1fr;
+  }
+  .photo { min-height: 280px; }
+}

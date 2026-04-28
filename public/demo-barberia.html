@@ -1,0 +1,139 @@
+<!doctype html>
+<html lang="es">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Barbería Demo | AutoChat Web</title>
+    <meta name="description" content="Demo de asistente web para barberías y estéticas." />
+    <link rel="stylesheet" href="/public/demo-barberia.css" />
+  </head>
+  <body>
+    <main>
+      <section class="hero">
+        <nav class="nav" aria-label="Navegación">
+          <a class="brand" href="#">
+            <strong>Barbería Demo</strong>
+            <span>Centro | Cortes, barba y cuidado personal</span>
+          </a>
+          <div class="nav-links">
+            <a href="#servicios">Servicios</a>
+            <a href="#horarios">Horarios</a>
+            <a href="#faq">Preguntas</a>
+            <a class="button" href="#probar">Agendar</a>
+          </div>
+        </nav>
+        <div class="hero-content">
+          <span class="eyebrow">Demo con asistente automático</span>
+          <h1>Barbería Demo</h1>
+          <p>
+            Corte, barba y arreglo personal con atención rápida desde la página. Abre el chat para pedir precios, horarios o solicitar una cita.
+          </p>
+          <div class="hero-actions">
+            <a class="button" href="#probar">Probar asistente</a>
+            <a class="button dark" href="#servicios">Ver servicios</a>
+          </div>
+        </div>
+      </section>
+
+      <section id="servicios" class="section">
+        <div class="inner">
+          <h2>Servicios populares</h2>
+          <p class="lead">Precios de ejemplo para mostrar cómo el asistente puede responder dudas frecuentes y guiar al cliente hacia una solicitud de cita.</p>
+          <div class="services">
+            <article class="service">
+              <strong>Corte clásico</strong>
+              <span>Lavado rápido, corte y peinado.</span>
+              <b>$180</b>
+            </article>
+            <article class="service">
+              <strong>Corte + barba</strong>
+              <span>Corte completo y delineado de barba.</span>
+              <b>$280</b>
+            </article>
+            <article class="service">
+              <strong>Barba premium</strong>
+              <span>Toalla caliente, perfilado y aceite.</span>
+              <b>$150</b>
+            </article>
+            <article class="service">
+              <strong>Facial express</strong>
+              <span>Limpieza rápida y mascarilla.</span>
+              <b>$220</b>
+            </article>
+          </div>
+        </div>
+      </section>
+
+      <section id="horarios" class="section band">
+        <div class="inner">
+          <h2>Información del negocio</h2>
+          <p class="lead">El bot puede contestar esta información automáticamente y capturar al cliente si quiere seguimiento.</p>
+          <div class="info-grid">
+            <article class="info-card">
+              <strong>Horario</strong>
+              <span>Lunes a sábado de 10:00 a 20:00. Domingo cerrado.</span>
+            </article>
+            <article class="info-card">
+              <strong>Ubicación</strong>
+              <span>Sucursal Centro, cerca de zona comercial.</span>
+            </article>
+            <article class="info-card">
+              <strong>Agenda</strong>
+              <span>Solicitudes por chat web con nombre, teléfono y servicio.</span>
+            </article>
+          </div>
+        </div>
+      </section>
+
+      <section class="section">
+        <div class="inner gallery">
+          <div class="photo" aria-label="Interior de barbería"></div>
+          <div>
+            <h2>Experiencia lista para vender</h2>
+            <p class="lead">
+              Esta página funciona como demo para mostrarle a una barbería cómo se vería su asistente: captura el lead, responde dudas y deja la conversación en el panel.
+            </p>
+            <a class="button" href="#probar">Abrir chat</a>
+          </div>
+        </div>
+      </section>
+
+      <section id="faq" class="section">
+        <div class="inner">
+          <h2>Preguntas frecuentes</h2>
+          <div class="faq-list">
+            <article class="faq">
+              <strong>¿Necesito pagar WhatsApp API?</strong>
+              <span>No para esta fase. El asistente funciona desde la página web y captura leads directamente.</span>
+            </article>
+            <article class="faq">
+              <strong>¿El negocio ve los clientes?</strong>
+              <span>Sí. Los leads quedan en el panel con estado, notas y conversación completa.</span>
+            </article>
+            <article class="faq">
+              <strong>¿Se puede adaptar a otra estética?</strong>
+              <span>Sí. Se cambian servicios, textos, precios, horarios y colores para cada negocio.</span>
+            </article>
+          </div>
+        </div>
+      </section>
+
+      <section id="probar" class="section cta">
+        <div class="inner">
+          <h2>Prueba el asistente</h2>
+          <p class="lead">Abre el chat de la esquina inferior derecha, deja tus datos y pregunta por un corte, barba u horario disponible.</p>
+          <a class="button" href="#">Chat disponible abajo</a>
+        </div>
+      </section>
+    </main>
+
+    <footer class="footer">
+      <div class="inner">
+        <strong>Barbería Demo</strong>
+        <span>Demo creada con AutoChat Web.</span>
+      </div>
+    </footer>
+
+    <script src="/public/widget.js" data-api-url="http://localhost:4000" data-business-id="demo_barberia"></script>
+  </body>
+</html>

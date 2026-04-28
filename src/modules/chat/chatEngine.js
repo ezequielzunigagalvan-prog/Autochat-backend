@@ -1,0 +1,790 @@
+import { prisma } from "../../prisma.js";
+import { generateBusinessReply } from "../ai/openaiService.js";
+import { addMinutes, availabilityMessage, checkAppointmentAvailability } from "../appointments/availability.js";
+
+const scheduleKeywords = ["cita", "agendar", "reservar", "agenda", "turno"];
+const cancelAppointmentKeywords = ["cancelar cita", "cancela mi cita", "cancelar mi cita", "anular cita"];
+const rescheduleKeywords = ["reagendar", "reprogramar", "cambiar cita", "mover cita", "cambiar mi cita"];
+const humanKeywords = ["humano", "asesor", "persona", "llamar", "queja"];
+const cancelKeywords = ["cancelar", "reiniciar", "empezar de nuevo", "salir", "reset"];
+
+function normalize(value) {
+  return (value || "")
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .trim();
+}
+
+function includesAny(text, keywords) {
+  const normalized = normalize(text);
+  return keywords.some((keyword) => normalized.includes(normalize(keyword)));
+}
+
+function formatServices(services) {
+  return services
+    .map((service, index) => `${index + 1}. ${service.name} (${service.durationMinutes} min, $${service.price})`)
+    .join("\n");
+}
+
+function findServiceFromText(services, text) {
+  const normalized = normalize(text);
+  const numberMatch = normalized.match(/\b(\d+)\b/);
+  if (numberMatch) {
+    const service = services[Number(numberMatch[1]) - 1];
+    if (service) return service;
+  }
+
+  return services.find((service) => {
+    const serviceName = normalize(service.name);
+    const firstWord = serviceName.split(/\s+/)[0];
+    return normalized.includes(serviceName) || (firstWord.length > 3 && normalized.includes(firstWord));
+  });
+}
+
+const WEEKDAYS = [
+  ["domingo", 0],
+  ["lunes", 1],
+  ["martes", 2],
+  ["miercoles", 3],
+  ["miércoles", 3],
+  ["jueves", 4],
+  ["viernes", 5],
+  ["sabado", 6],
+  ["sábado", 6]
+];
+
+const PAST_DATE_REPLY =
+  "No puedo agendar en fechas que ya pasaron. Dime una fecha futura, por ejemplo: mañana a las 4 pm, este martes a las 2 pm o 27/04 16:00.";
+
+function hasPastDateReference(text) {
+  const normalized = normalize(text);
+  if (normalized.includes("pasado manana")) return false;
+
+  const directPastWords = [
+    "ayer",
+    "antier",
+    "anteayer",
+    "semana pasada",
+    "mes pasado",
+    "ano pasado",
+    "año pasado"
+  ];
+  if (directPastWords.some((word) => normalized.includes(normalize(word)))) return true;
+
+  return WEEKDAYS.some(([name]) => {
+    const day = normalize(name);
+    return (
+      normalized.includes(`${day} pasado`) ||
+      normalized.includes(`${day} pasada`) ||
+      normalized.includes(`pasado ${day}`) ||
+      normalized.includes(`pasada ${day}`)
+    );
+  });
+}
+
+function hasDateReference(text) {
+  const normalized = normalize(text);
+  const hasRelativeDate =
+    normalized.includes("pasado manana") ||
+    normalized.includes("manana") ||
+    normalized.includes("hoy") ||
+    normalized.includes("semana") ||
+    normalized.includes("mes");
+  const hasExplicitDate =
+    /\b(20\d{2})-(\d{1,2})-(\d{1,2})\b/.test(normalized) ||
+    /\b(\d{1,2})[/-](\d{1,2})(?:[/-](20\d{2}))?\b/.test(normalized);
+  const hasWeekday = WEEKDAYS.some(([name]) => normalized.includes(normalize(name)));
+  return hasRelativeDate || hasExplicitDate || hasWeekday;
+}
+
+function nextWeekdayDate(targetDay, { forceNextWeek = false } = {}) {
+  const now = new Date();
+  const today = now.getDay();
+  let daysAhead = (targetDay - today + 7) % 7;
+  if (daysAhead === 0 || forceNextWeek) daysAhead += 7;
+  return new Date(now.getFullYear(), now.getMonth(), now.getDate() + daysAhead);
+}
+
+function parseDateTime(text, baseDate = null) {
+  const normalized = normalize(text);
+  const now = new Date();
+  const shouldUseBaseDate = baseDate && !hasDateReference(text);
+  let date = shouldUseBaseDate ? new Date(baseDate.getFullYear(), baseDate.getMonth(), baseDate.getDate()) : null;
+
+  const isoMatch = normalized.match(/\b(20\d{2})-(\d{1,2})-(\d{1,2})\b/);
+  const slashMatch = normalized.match(/\b(\d{1,2})[/-](\d{1,2})(?:[/-](20\d{2}))?\b/);
+
+  if (normalized.includes("pasado manana")) {
+    date = new Date(now.getFullYear(), now.getMonth(), now.getDate() + 2);
+  } else if (normalized.includes("manana")) {
+    date = new Date(now.getFullYear(), now.getMonth(), now.getDate() + 1);
+  } else if (normalized.includes("hoy")) {
+    date = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+  } else if (isoMatch) {
+    date = new Date(Number(isoMatch[1]), Number(isoMatch[2]) - 1, Number(isoMatch[3]));
+  } else if (slashMatch) {
+    const year = slashMatch[3] ? Number(slashMatch[3]) : now.getFullYear();
+    date = new Date(year, Number(slashMatch[2]) - 1, Number(slashMatch[1]));
+  }
+
+  const weekday = WEEKDAYS.find(([name]) => normalized.includes(normalize(name)));
+  if (weekday) {
+    const forceNextWeek = normalized.includes("proximo") || normalized.includes("siguiente");
+    date = nextWeekdayDate(weekday[1], { forceNextWeek });
+  }
+
+  const timeMatches = [...normalized.matchAll(/\b(?:a\s+las\s+|las\s+)?(\d{1,2})(?::(\d{2}))?\s*(am|pm)?\b/g)];
+  const timeMatch =
+    timeMatches.find((match) => Boolean(match[2] || match[3])) || timeMatches[timeMatches.length - 1];
+  if (!date || !timeMatch) return null;
+
+  let hour = Number(timeMatch[1]);
+  const minute = timeMatch[2] ? Number(timeMatch[2]) : 0;
+  const meridiem =
+    timeMatch[3] ||
+    (normalized.includes("tarde") || normalized.includes("noche")
+      ? "pm"
+      : normalized.includes("de la manana") || normalized.includes("por la manana")
+        ? "am"
+        : "");
+
+  if (meridiem === "pm" && hour < 12) hour += 12;
+  if (meridiem === "am" && hour === 12) hour = 0;
+  if (!meridiem && hour >= 1 && hour <= 7) hour += 12;
+
+  date.setHours(hour, minute, 0, 0);
+  return date;
+}
+
+function looksLikePhone(value) {
+  return /^\+?\d[\d\s-]{7,}$/.test(value || "");
+}
+
+function formatAppointment(appointment, index = null) {
+  const prefix = index === null ? "" : `${index + 1}. `;
+  return `${prefix}${appointment.serviceName}, ${appointment.startsAt.toLocaleString("es-MX")}`;
+}
+
+function parsePendingData(customer) {
+  try {
+    return JSON.parse(customer.pendingData || "{}");
+  } catch {
+    return {};
+  }
+}
+
+async function findOrCreateCustomer({ businessId, from }) {
+  const phone = from || "unknown";
+  return prisma.customer.upsert({
+    where: { businessId_phone: { businessId, phone } },
+    update: {},
+    create: {
+      businessId,
+      phone,
+      name: looksLikePhone(phone) || phone === "unknown" ? "Cliente sin identificar" : phone
+    }
+  });
+}
+
+async function loadBusiness(businessId) {
+  const include = {
+    services: { where: { active: true }, orderBy: { createdAt: "asc" } },
+    faqs: { where: { active: true }, orderBy: { createdAt: "asc" } }
+  };
+  return businessId
+    ? prisma.business.findUnique({ where: { id: businessId }, include })
+    : prisma.business.findFirst({ include, orderBy: { createdAt: "asc" } });
+}
+
+async function resetCustomer(customerId) {
+  await prisma.appointment.updateMany({
+    where: { customerId, status: "hold" },
+    data: { status: "expired", holdExpiresAt: null }
+  });
+
+  return prisma.customer.update({
+    where: { id: customerId },
+    data: {
+      conversationState: "idle",
+      pendingServiceId: null,
+      pendingStartsAt: null,
+      pendingData: "{}"
+    }
+  });
+}
+
+async function getUpcomingAppointments(customerId) {
+  return prisma.appointment.findMany({
+    where: {
+      customerId,
+      status: "confirmed",
+      startsAt: { gt: new Date() }
+    },
+    orderBy: { startsAt: "asc" },
+    take: 5
+  });
+}
+
+async function selectAppointmentFromText(customer, text) {
+  const appointments = await getUpcomingAppointments(customer.id);
+  if (!appointments.length) return { appointments, selected: null };
+
+  const numberMatch = normalize(text).match(/\b(\d+)\b/);
+  if (numberMatch) {
+    const selected = appointments[Number(numberMatch[1]) - 1];
+    if (selected) return { appointments, selected };
+  }
+
+  return { appointments, selected: appointments.length === 1 ? appointments[0] : null };
+}
+
+async function cancelAppointmentFromConversation({ business, customer, appointment }) {
+  const hoursUntilAppointment = (appointment.startsAt.getTime() - Date.now()) / (60 * 60 * 1000);
+  if (hoursUntilAppointment < business.cancellationMinHours) {
+    await resetCustomer(customer.id);
+    return `No puedo cancelar automáticamente esa cita porque faltan menos de ${business.cancellationMinHours} horas. Te paso con una persona del equipo para revisarlo.`;
+  }
+
+  await prisma.appointment.update({
+    where: { id: appointment.id },
+    data: { status: "cancelled", holdExpiresAt: null }
+  });
+  await resetCustomer(customer.id);
+  return `Listo, cancele tu cita: ${formatAppointment(appointment)}.`;
+}
+
+async function createAppointmentFromState({ business, customer, customerName }) {
+  const service = business.services.find((item) => item.id === customer.pendingServiceId);
+  if (!service || !customer.pendingStartsAt) return null;
+
+  const cleanName = customerName?.trim() || customer.name || "Cliente sin identificar";
+  const updatedCustomer = await prisma.customer.update({
+    where: { id: customer.id },
+    data: {
+      name: cleanName,
+      leadStatus: "cita_agendada",
+      conversationState: "idle",
+      pendingServiceId: null,
+      pendingStartsAt: null,
+      pendingData: "{}"
+    }
+  });
+
+  const heldAppointment = await prisma.appointment.findFirst({
+    where: {
+      businessId: business.id,
+      customerId: customer.id,
+      serviceId: service.id,
+      startsAt: customer.pendingStartsAt,
+      status: "hold",
+      holdExpiresAt: { gt: new Date() }
+    },
+    orderBy: { createdAt: "desc" }
+  });
+
+  if (heldAppointment) {
+    return prisma.appointment.update({
+      where: { id: heldAppointment.id },
+      data: {
+        status: "confirmed",
+        customerName: updatedCustomer.name,
+        customerPhone: updatedCustomer.phone,
+        holdExpiresAt: null
+      }
+    });
+  }
+
+  const availability = await checkAppointmentAvailability({
+    businessId: business.id,
+    serviceId: service.id,
+    startsAt: customer.pendingStartsAt
+  });
+  if (!availability.available) {
+    await prisma.customer.update({
+      where: { id: customer.id },
+      data: {
+        conversationState: "scheduling_datetime",
+        pendingStartsAt: customer.pendingStartsAt,
+        pendingData: "{}"
+      }
+    });
+
+    return {
+      unavailable: true,
+      reply: `${availabilityMessage(availability)} ¿Cuál te funciona?`
+    };
+  }
+
+  return prisma.appointment.create({
+    data: {
+      businessId: business.id,
+      customerId: updatedCustomer.id,
+      serviceId: service.id,
+      staffId: availability.staff?.id || null,
+      customerName: updatedCustomer.name,
+      customerPhone: updatedCustomer.phone,
+      serviceName: service.name,
+      startsAt: customer.pendingStartsAt,
+      notes: "Cita creada desde conversación automática"
+    }
+  });
+}
+
+async function holdDateTimeIfAvailable({ business, customer, service, startsAt }) {
+  await prisma.appointment.updateMany({
+    where: { customerId: customer.id, status: "hold" },
+    data: { status: "expired", holdExpiresAt: null }
+  });
+
+  const availability = await checkAppointmentAvailability({
+    businessId: business.id,
+    serviceId: service.id,
+    startsAt
+  });
+
+  if (!availability.available) {
+    await prisma.customer.update({
+      where: { id: customer.id },
+      data: {
+        conversationState: "scheduling_datetime",
+        pendingServiceId: service.id,
+        pendingStartsAt: startsAt
+      }
+    });
+
+    return {
+      available: false,
+      reply: `${availabilityMessage(availability)} ¿Cuál te funciona?`
+    };
+  }
+
+  await prisma.appointment.create({
+    data: {
+      businessId: business.id,
+      customerId: customer.id,
+      serviceId: service.id,
+      staffId: availability.staff?.id || null,
+      customerName: customer.name,
+      customerPhone: customer.phone,
+      serviceName: service.name,
+      startsAt,
+      status: "hold",
+      holdExpiresAt: addMinutes(new Date(), business.holdMinutes),
+      notes: "Apartado temporal desde conversación automática"
+    }
+  });
+
+  await prisma.customer.update({
+    where: { id: customer.id },
+    data: { conversationState: "scheduling_name", pendingStartsAt: startsAt }
+  });
+
+  return {
+    available: true,
+    reply: `Listo, te aparto ese horario por ${business.holdMinutes} minutos. ¿A qué nombre registro la cita?`
+  };
+}
+
+async function buildStateReply({ business, customer, text }) {
+  if (customer.botPaused) {
+    await prisma.customer.update({ where: { id: customer.id }, data: { needsHuman: true, lastIntent: "bot_paused" } });
+    return {
+      intent: "bot_paused",
+      status: "needs_human",
+      reply: "Gracias por escribir. Una persona del equipo está atendiendo esta conversación y te respondera pronto."
+    };
+  }
+
+  if (normalize(text) === "estado") {
+    return {
+      intent: "debug_state",
+      status: "auto_replied",
+      reply: `Estoy en estado: ${customer.conversationState}. Si quieres empezar de nuevo, escribe reset.`
+    };
+  }
+
+  if (customer.conversationState === "cancelling_select") {
+    const { appointments, selected } = await selectAppointmentFromText(customer, text);
+    if (!selected) {
+      return {
+        intent: "cancelling_select",
+        status: "scheduling",
+        reply: `Dime el número de la cita que quieres cancelar:\n${appointments.map(formatAppointment).join("\n")}`
+      };
+    }
+
+    return {
+      intent: "appointment_cancelled",
+      status: "appointment_cancelled",
+      reply: await cancelAppointmentFromConversation({ business, customer, appointment: selected })
+    };
+  }
+
+  if (customer.conversationState === "rescheduling_select") {
+    const { appointments, selected } = await selectAppointmentFromText(customer, text);
+    if (!selected) {
+      return {
+        intent: "rescheduling_select",
+        status: "scheduling",
+        reply: `Dime el número de la cita que quieres reagendar:\n${appointments.map(formatAppointment).join("\n")}`
+      };
+    }
+
+    await prisma.customer.update({
+      where: { id: customer.id },
+      data: {
+        conversationState: "rescheduling_datetime",
+        pendingServiceId: selected.serviceId,
+        pendingStartsAt: selected.startsAt,
+        pendingData: JSON.stringify({ appointmentId: selected.id })
+      }
+    });
+
+    return {
+      intent: "rescheduling_datetime",
+      status: "scheduling",
+      reply: `Claro. ¿Para qué nuevo día y hora quieres mover tu cita de ${selected.serviceName}?`
+    };
+  }
+
+  if (customer.conversationState === "rescheduling_datetime") {
+    const pending = parsePendingData(customer);
+    if (hasPastDateReference(text)) {
+      return {
+        intent: "rescheduling_past_date",
+        status: "scheduling",
+        reply: "No puedo reagendar a una fecha que ya pasó. Dime una fecha futura, por ejemplo: mañana a las 4 pm o 27/04 16:00."
+      };
+    }
+
+    const startsAt = parseDateTime(text, customer.pendingStartsAt);
+    if (!startsAt) {
+      return {
+        intent: "rescheduling_datetime",
+        status: "scheduling",
+        reply: "Me falta el nuevo día y hora. Puedes escribirlo como: mañana a las 4 pm o 27/04 16:00."
+      };
+    }
+
+    const appointment = await prisma.appointment.findUnique({
+      where: { id: pending.appointmentId },
+      include: { business: true }
+    });
+    if (!appointment) {
+      await resetCustomer(customer.id);
+      return {
+        intent: "rescheduling_error",
+        status: "needs_human",
+        reply: "No encontré esa cita. Te paso con una persona del equipo para revisarlo."
+      };
+    }
+
+    const hoursUntilAppointment = (appointment.startsAt.getTime() - Date.now()) / (60 * 60 * 1000);
+    if (hoursUntilAppointment < business.cancellationMinHours) {
+      await resetCustomer(customer.id);
+      return {
+        intent: "rescheduling_closed",
+        status: "needs_human",
+        reply: `Solo puedo reagendar automáticamente con al menos ${business.cancellationMinHours} horas de anticipación. Te paso con una persona del equipo.`
+      };
+    }
+
+    await prisma.appointment.update({ where: { id: appointment.id }, data: { status: "rescheduling" } });
+    const availability = await checkAppointmentAvailability({
+      businessId: business.id,
+      serviceId: appointment.serviceId,
+      startsAt
+    });
+
+    if (!availability.available) {
+      await prisma.appointment.update({ where: { id: appointment.id }, data: { status: "confirmed" } });
+      return {
+        intent: "rescheduling_unavailable",
+        status: "scheduling",
+        reply: `${availabilityMessage(availability)} ¿Cuál te funciona?`
+      };
+    }
+
+    const updated = await prisma.appointment.update({
+      where: { id: appointment.id },
+      data: {
+        status: "confirmed",
+        startsAt,
+        staffId: availability.staff?.id || null,
+        holdExpiresAt: null
+      }
+    });
+    await resetCustomer(customer.id);
+
+    return {
+      intent: "appointment_rescheduled",
+      status: "appointment_rescheduled",
+      reply: `Listo, reagende tu cita: ${formatAppointment(updated)}.`
+    };
+  }
+
+  if (includesAny(text, cancelAppointmentKeywords)) {
+    const { appointments, selected } = await selectAppointmentFromText(customer, text);
+    if (!appointments.length) {
+      return {
+        intent: "no_appointments",
+        status: "auto_replied",
+        reply: "No encontré citas futuras con este teléfono. Si usaste otro número, escribeme desde ese número o te paso con una persona."
+      };
+    }
+    if (selected) {
+      return {
+        intent: "appointment_cancelled",
+        status: "appointment_cancelled",
+        reply: await cancelAppointmentFromConversation({ business, customer, appointment: selected })
+      };
+    }
+    await prisma.customer.update({ where: { id: customer.id }, data: { conversationState: "cancelling_select" } });
+    return {
+      intent: "cancelling_select",
+      status: "scheduling",
+      reply: `Claro. Dime el número de la cita que quieres cancelar:\n${appointments.map(formatAppointment).join("\n")}`
+    };
+  }
+
+  if (includesAny(text, rescheduleKeywords)) {
+    const { appointments, selected } = await selectAppointmentFromText(customer, text);
+    if (!appointments.length) {
+      return {
+        intent: "no_appointments",
+        status: "auto_replied",
+        reply: "No encontré citas futuras con este teléfono. Si usaste otro número, escribeme desde ese número o te paso con una persona."
+      };
+    }
+    if (selected) {
+      await prisma.customer.update({
+        where: { id: customer.id },
+        data: {
+          conversationState: "rescheduling_datetime",
+          pendingServiceId: selected.serviceId,
+          pendingStartsAt: selected.startsAt,
+          pendingData: JSON.stringify({ appointmentId: selected.id })
+        }
+      });
+      return {
+        intent: "rescheduling_datetime",
+        status: "scheduling",
+        reply: `Claro. ¿Para qué nuevo día y hora quieres mover tu cita de ${selected.serviceName}?`
+      };
+    }
+    await prisma.customer.update({ where: { id: customer.id }, data: { conversationState: "rescheduling_select" } });
+    return {
+      intent: "rescheduling_select",
+      status: "scheduling",
+      reply: `Claro. Dime el número de la cita que quieres reagendar:\n${appointments.map(formatAppointment).join("\n")}`
+    };
+  }
+
+  if (includesAny(text, cancelKeywords)) {
+    await resetCustomer(customer.id);
+    return {
+      intent: "reset",
+      status: "auto_replied",
+      reply: "Listo, empezamos de nuevo. Puedo ayudarte con información, precios, horarios o agendar una cita."
+    };
+  }
+
+  if (includesAny(text, humanKeywords)) {
+    await prisma.customer.update({
+      where: { id: customer.id },
+      data: { conversationState: "needs_human", needsHuman: true, lastIntent: "needs_human" }
+    });
+    return {
+      intent: "needs_human",
+      status: "needs_human",
+      reply: "Claro, te voy a pasar con una persona del equipo para que te atienda."
+    };
+  }
+
+  if (customer.conversationState === "scheduling_service") {
+    const service = findServiceFromText(business.services, text);
+    if (!service) {
+      return {
+        intent: "scheduling_service",
+        status: "scheduling",
+        reply: `Para agendar, dime el número o nombre del servicio:\n${formatServices(business.services)}`
+      };
+    }
+
+    await prisma.customer.update({
+      where: { id: customer.id },
+      data: { conversationState: "scheduling_datetime", pendingServiceId: service.id }
+    });
+
+    return {
+      intent: "scheduling_datetime",
+      status: "scheduling",
+      reply: `Perfecto, ${service.name}. ¿Qué día y hora te conviene? Por ejemplo: mañana a las 4 pm o 27/04 16:00.`
+    };
+  }
+
+  if (customer.conversationState === "scheduling_datetime") {
+    if (hasPastDateReference(text)) {
+      return {
+        intent: "scheduling_past_date",
+        status: "scheduling",
+        reply: PAST_DATE_REPLY
+      };
+    }
+
+    const startsAt = parseDateTime(text, customer.pendingStartsAt);
+    if (!startsAt) {
+      return {
+        intent: "scheduling_datetime",
+        status: "scheduling",
+        reply: "Me falta el día y la hora. Puedes escribirlo como: este martes a las 2 pm, mañana a las 4 pm o 27/04 16:00. Si quieres empezar de nuevo, escribe reset."
+      };
+    }
+
+    const service = business.services.find((item) => item.id === customer.pendingServiceId);
+    if (!service) {
+      await prisma.customer.update({ where: { id: customer.id }, data: { conversationState: "scheduling_service" } });
+      return {
+        intent: "scheduling_service",
+        status: "scheduling",
+        reply: `Me falta el servicio. Dime el número o nombre:\n${formatServices(business.services)}`
+      };
+    }
+
+    const holdResult = await holdDateTimeIfAvailable({ business, customer, service, startsAt });
+    return {
+      intent: holdResult.available ? "scheduling_name" : "scheduling_unavailable",
+      status: "scheduling",
+      reply: holdResult.reply
+    };
+  }
+
+  if (customer.conversationState === "scheduling_name") {
+    const appointment = await createAppointmentFromState({ business, customer, customerName: text });
+    if (appointment?.unavailable) {
+      return {
+        intent: "scheduling_unavailable",
+        status: "scheduling",
+        reply: appointment.reply
+      };
+    }
+
+    if (!appointment) {
+      await resetCustomer(customer.id);
+      return {
+        intent: "scheduling_error",
+        status: "needs_human",
+        reply: "No pude confirmar la cita con los datos actuales. Te paso con una persona del equipo para revisarlo."
+      };
+    }
+
+    return {
+      intent: "appointment_confirmed",
+      status: "appointment_confirmed",
+      reply: `Cita confirmada para ${appointment.customerName}: ${appointment.serviceName}, ${appointment.startsAt.toLocaleString("es-MX")}.`
+    };
+  }
+
+  const matchedFaq = business.faqs.find((faq) => normalize(text).includes(normalize(faq.question)));
+  if (includesAny(text, scheduleKeywords)) {
+    if (hasPastDateReference(text)) {
+      return {
+        intent: "scheduling_past_date",
+        status: "scheduling",
+        reply: PAST_DATE_REPLY
+      };
+    }
+
+    const service = findServiceFromText(business.services, text);
+    const startsAt = parseDateTime(text);
+
+    if (service && startsAt) {
+      await prisma.customer.update({ where: { id: customer.id }, data: { pendingServiceId: service.id } });
+      const holdResult = await holdDateTimeIfAvailable({ business, customer, service, startsAt });
+      return {
+        intent: holdResult.available ? "scheduling_name" : "scheduling_unavailable",
+        status: "scheduling",
+        reply: holdResult.available ? "Tengo servicio, día y hora. ¿A qué nombre registro la cita?" : holdResult.reply
+      };
+    }
+
+    await prisma.customer.update({
+      where: { id: customer.id },
+      data: { conversationState: service ? "scheduling_datetime" : "scheduling_service", pendingServiceId: service?.id || null }
+    });
+
+    return service
+      ? {
+          intent: "scheduling_datetime",
+          status: "scheduling",
+          reply: `Perfecto, ${service.name}. ¿Qué día y hora te conviene?`
+        }
+      : {
+          intent: "scheduling_service",
+          status: "scheduling",
+          reply: `Con gusto te ayudo a agendar. Estos son nuestros servicios:\n${formatServices(business.services)}\n\nDime el número o nombre del servicio.`
+        };
+  }
+
+  if (matchedFaq) {
+    return { intent: "faq", status: "auto_replied", reply: matchedFaq.answer };
+  }
+
+  return {
+    intent: "general",
+    status: "auto_replied",
+    reply: `Hola, soy el asistente de ${business.name}. Puedo ayudarte con información, precios, horarios y citas. ¿Qué necesitas hoy?`
+  };
+}
+
+export async function answerMessage({ businessId, from, text, channel = "web_or_whatsapp" }) {
+  const business = await loadBusiness(businessId);
+  if (!business) throw Object.assign(new Error("No business configured"), { status: 400 });
+
+  const customer = await findOrCreateCustomer({ businessId: business.id, from });
+  const fallback = await buildStateReply({ business, customer, text });
+  await prisma.customer.update({
+    where: { id: customer.id },
+    data: {
+      needsHuman: customer.needsHuman || fallback.status === "needs_human",
+      lastIntent: fallback.intent
+    }
+  });
+  const updatedCustomer = await prisma.customer.findUnique({ where: { id: customer.id } });
+  const recentConversations = await prisma.conversation.findMany({
+    where: { customerId: customer.id },
+    orderBy: { createdAt: "desc" },
+    take: 8
+  });
+
+  let reply = fallback.reply;
+
+  if (["general", "faq"].includes(fallback.intent)) {
+    try {
+      const aiReply = await generateBusinessReply({
+        business,
+        customer: updatedCustomer,
+        recentConversations: recentConversations.reverse(),
+        customerText: text,
+        intent: fallback.intent,
+        fallbackReply: fallback.reply
+      });
+      if (aiReply) reply = aiReply;
+    } catch (error) {
+      console.warn("OpenAI reply failed, using fallback reply:", error.message);
+    }
+  }
+
+  return prisma.conversation.create({
+    data: {
+      businessId: business.id,
+      customerId: customer.id,
+      channel,
+      from: from || customer.phone,
+      inboundText: text,
+      outboundText: reply,
+      status: fallback.status
+    }
+  });
+}

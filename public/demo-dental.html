@@ -1,0 +1,143 @@
+<!doctype html>
+<html lang="es">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Clínica Dental Demo | AutoChat Web</title>
+    <meta name="description" content="Demo de asistente web para clínicas dentales." />
+    <link rel="stylesheet" href="/public/demo-dental.css" />
+  </head>
+  <body>
+    <main>
+      <section class="hero">
+        <nav class="nav" aria-label="Navegación">
+          <a class="brand" href="#">
+            <strong>Clínica Dental Demo</strong>
+            <span>Valoración, limpieza, ortodoncia y urgencias</span>
+          </a>
+          <div class="nav-links">
+            <a href="#servicios">Servicios</a>
+            <a href="#confianza">Confianza</a>
+            <a href="#faq">Preguntas</a>
+            <a class="button" href="#probar">Solicitar cita</a>
+          </div>
+        </nav>
+        <div class="hero-content">
+          <span class="eyebrow">Demo con asistente para pacientes</span>
+          <h1>Clínica Dental Demo</h1>
+          <p>
+            Un asistente web que orienta al paciente, responde dudas comunes y captura solicitudes de valoración sin depender de WhatsApp API.
+          </p>
+          <div class="hero-actions">
+            <a class="button" href="#probar">Probar asistente</a>
+            <a class="button dark" href="#servicios">Ver tratamientos</a>
+          </div>
+        </div>
+      </section>
+
+      <section id="servicios" class="section">
+        <div class="inner">
+          <h2>Tratamientos frecuentes</h2>
+          <p class="lead">Servicios de ejemplo para mostrar cómo el asistente puede orientar pacientes y generar solicitudes claras para el equipo.</p>
+          <div class="service-grid">
+            <article class="service">
+              <strong>Valoración inicial</strong>
+              <span>Revisión general y plan sugerido.</span>
+              <b>$300</b>
+            </article>
+            <article class="service">
+              <strong>Limpieza dental</strong>
+              <span>Profilaxis y recomendaciones de cuidado.</span>
+              <b>$650</b>
+            </article>
+            <article class="service">
+              <strong>Ortodoncia</strong>
+              <span>Evaluación para brackets o alineadores.</span>
+              <b>Desde $900</b>
+            </article>
+            <article class="service">
+              <strong>Urgencia dental</strong>
+              <span>Dolor, inflamación o molestia repentina.</span>
+              <b>Prioridad</b>
+            </article>
+          </div>
+        </div>
+      </section>
+
+      <section id="confianza" class="section band">
+        <div class="inner">
+          <h2>Atención clara desde el primer mensaje</h2>
+          <p class="lead">El asistente no diagnostica. Captura la solicitud, orienta con información general y pasa el caso al equipo para seguimiento.</p>
+          <div class="trust-grid">
+            <article class="trust">
+              <strong>Captura del paciente</strong>
+              <span>Nombre, teléfono, correo y motivo de consulta.</span>
+            </article>
+            <article class="trust">
+              <strong>Clasificación</strong>
+              <span>Valoración, limpieza, ortodoncia o urgencia.</span>
+            </article>
+            <article class="trust">
+              <strong>Seguimiento</strong>
+              <span>El equipo ve el lead, notas e historial completo en el panel.</span>
+            </article>
+          </div>
+        </div>
+      </section>
+
+      <section class="section">
+        <div class="inner split">
+          <div>
+            <h2>Demo para mostrar a clínicas</h2>
+            <p class="lead">
+              Esta pagina enseña como una clínica dental puede recibir solicitudes desde su sitio web, incluso sin conectar WhatsApp oficial.
+            </p>
+            <a class="button" href="#probar">Abrir chat</a>
+          </div>
+          <div class="photo" aria-label="Consultorio dental"></div>
+        </div>
+      </section>
+
+      <section id="faq" class="section">
+        <div class="inner">
+          <h2>Preguntas frecuentes</h2>
+          <div class="faq-list">
+            <article class="faq">
+              <strong>¿El bot da diagnósticos?</strong>
+              <span>No. Solo brinda información general y captura la solicitud para que la revise el equipo.</span>
+            </article>
+            <article class="faq">
+              <strong>¿Puede priorizar urgencias?</strong>
+              <span>Sí. Puede identificar mensajes de dolor o urgencia y marcarlos para atención humana.</span>
+            </article>
+            <article class="faq">
+              <strong>¿Se adapta a tratamientos reales?</strong>
+              <span>Sí. Se configuran servicios, precios, horarios, preguntas frecuentes y tono de la clínica.</span>
+            </article>
+            <article class="faq">
+              <strong>¿Necesita WhatsApp API?</strong>
+              <span>No para esta fase. El canal principal es el widget web con captura de leads.</span>
+            </article>
+          </div>
+        </div>
+      </section>
+
+      <section id="probar" class="section cta">
+        <div class="inner">
+          <h2>Prueba el asistente dental</h2>
+          <p class="lead">Abre el chat de la esquina inferior derecha, deja tus datos y pregunta por una limpieza, valoración u urgencia.</p>
+          <a class="button" href="#">Chat disponible abajo</a>
+        </div>
+      </section>
+    </main>
+
+    <footer class="footer">
+      <div class="inner">
+        <strong>Clínica Dental Demo</strong>
+        <span>Demo creada con AutoChat Web.</span>
+      </div>
+    </footer>
+
+    <script src="/public/widget.js" data-api-url="http://localhost:4000" data-business-id="demo_dental"></script>
+  </body>
+</html>

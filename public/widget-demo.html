@@ -1,0 +1,24 @@
+<!doctype html>
+<html lang="es">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>AutoChat Demo Web</title>
+  </head>
+  <body style="font-family:system-ui,-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;margin:0;background:#f5f7f4;color:#18211f">
+    <main style="min-height:100vh;display:grid;align-content:center;gap:18px;max-width:760px;margin:auto;padding:40px">
+      <span style="font-weight:800;color:#c66d42">Demo asistente web</span>
+      <h1 style="font-size:44px;line-height:1.05;margin:0">No pierdas clientes por no responder.</h1>
+      <p style="font-size:18px;color:#526158;line-height:1.6;margin:0">
+        Este widget captura datos, responde preguntas frecuentes y ayuda a generar solicitudes de cita sin depender de Twilio, Meta o 360dialog.
+      </p>
+      <div style="display:flex;gap:10px;flex-wrap:wrap">
+        <span style="background:#fff;border:1px solid #dfe5dc;border-radius:8px;padding:10px 12px">Servicios</span>
+        <span style="background:#fff;border:1px solid #dfe5dc;border-radius:8px;padding:10px 12px">Cotizaciones</span>
+        <span style="background:#fff;border:1px solid #dfe5dc;border-radius:8px;padding:10px 12px">Leads</span>
+        <span style="background:#fff;border:1px solid #dfe5dc;border-radius:8px;padding:10px 12px">Agenda</span>
+      </div>
+    </main>
+    <script src="/public/widget.js" data-api-url="http://localhost:4000" data-business-id="demo_proyectos"></script>
+  </body>
+</html>
