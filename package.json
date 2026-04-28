@@ -11,6 +11,7 @@
     "build": "prisma generate",
     "db:deploy": "prisma migrate deploy",
     "db:seed": "node prisma/seed.js",
+    "db:demo-user": "node prisma/ensure-demo-user.js",
     "prisma:migrate": "prisma migrate dev",
     "prisma:seed": "node prisma/seed.js",
     "prisma:studio": "prisma studio"
