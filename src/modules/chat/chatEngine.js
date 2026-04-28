@@ -16,12 +16,15 @@ const scheduleKeywords = [
 ];
 const cancelAppointmentKeywords = ["cancelar cita", "cancela mi cita", "cancelar mi cita", "anular cita"];
 const rescheduleKeywords = ["reagendar", "reprogramar", "cambiar cita", "mover cita", "cambiar mi cita"];
-const humanKeywords = ["humano", "asesor", "persona", "llamar", "queja"];
+const humanKeywords = ["humano", "asesor", "persona", "llamar", "queja", "atencion", "atención", "soporte", "contacto"];
 const cancelKeywords = ["cancelar", "reiniciar", "empezar de nuevo", "salir", "reset"];
 const PROJECTS_DEMO_ID = "demo_proyectos";
 const APPOINTMENT_DEMO_IDS = ["demo_barberia", "demo_dental"];
 const QUOTE_BASED_NICHES = ["industrial", "servicios", "proyectos", "inmobiliaria", "educacion"];
 const quoteKeywords = ["cotizar", "cotizacion", "cotización", "precio", "presupuesto", "propuesta", "servicio", "informacion", "información"];
+const strongQuoteKeywords = ["cotizar", "cotizacion", "cotización", "precio", "presupuesto", "propuesta"];
+const servicesKeywords = ["servicio", "servicios", "opciones", "catalogo", "catálogo", "que hacen", "qué hacen"];
+const greetingKeywords = ["hola", "buenas", "buen dia", "buen día", "buenos dias", "buenos días", "info", "informes", "ayuda"];
 
 function normalize(value) {
   return (value || "")
@@ -36,26 +39,154 @@ function includesAny(text, keywords) {
   return keywords.some((keyword) => normalized.includes(normalize(keyword)));
 }
 
-function quoteRequestReply(business) {
-  if (business.niche === "industrial") {
-    return [
-      "Claro. Para preparar una cotización necesito estos datos:",
-      "",
-      "1. Empresa y nombre de contacto.",
-      "2. Servicio requerido.",
-      "3. Tipo de equipo o sistema.",
-      "4. Capacidad aproximada en litros.",
-      "5. Ubicación de la planta.",
-      "6. Urgencia: programado o urgente.",
-      "",
-      "Con eso dejo la solicitud registrada para que el equipo la revise y te contacte."
-    ].join("\n");
-  }
+function isQuoteBasedBusiness(business) {
+  return QUOTE_BASED_NICHES.includes(business.niche);
+}
+
+function isGreetingOrShortHelp(text) {
+  const normalized = normalize(text);
+  return (
+    greetingKeywords.some((keyword) => normalized === normalize(keyword) || normalized.includes(normalize(keyword))) ||
+    normalized.length <= 3
+  );
+}
+
+function mainMenuReply(business) {
+  return [
+    `Hola, soy el asistente de ${business.name}. ¿En qué puedo ayudarte hoy?`,
+    "",
+    "1. Ver servicios",
+    isQuoteBasedBusiness(business) ? "2. Solicitar cotización" : "2. Agendar cita",
+    "3. Atención con una persona",
+    "",
+    "Responde con el número de la opción o dime qué necesitas."
+  ].join("\n");
+}
+
+function detectMainMenuChoice(text, business) {
+  const normalized = normalize(text);
+  const quoteBased = isQuoteBasedBusiness(business);
+
+  if (/^(1|uno|opcion 1|opcion uno)\b/.test(normalized) || includesAny(text, servicesKeywords)) return "services";
+  if (/^(2|dos|opcion 2|opcion dos)\b/.test(normalized)) return quoteBased ? "quote" : "schedule";
+  if (/^(3|tres|opcion 3|opcion tres)\b/.test(normalized) || includesAny(text, humanKeywords)) return "human";
+  if (quoteBased && includesAny(text, quoteKeywords)) return "quote";
+  if (!quoteBased && includesAny(text, scheduleKeywords)) return "schedule";
+  return null;
+}
+
+function servicesReply(business) {
+  const nextStep = isQuoteBasedBusiness(business)
+    ? "Si quieres una cotización, responde 2 o dime qué servicio te interesa."
+    : "Si quieres agendar, responde 2 o dime qué servicio y horario prefieres.";
 
   return [
-    "Claro. Para ayudarte con una cotización necesito nombre, teléfono, servicio requerido, ubicación y detalles del proyecto.",
-    "Con esa información dejo la solicitud registrada para seguimiento."
+    "Estos son los servicios disponibles:",
+    formatServices(business.services, business),
+    "",
+    nextStep
   ].join("\n");
+}
+
+function quoteIntroReply(business) {
+  const serviceList = business.services.length
+    ? `\n\nServicios:\n${formatServices(business.services, business)}`
+    : "";
+  return [
+    "Perfecto, te ayudo a levantar una solicitud de cotización.",
+    "Primero dime qué servicio necesitas o cuál es el problema que quieres resolver.",
+    serviceList
+  ].join("\n");
+}
+
+function quoteDetailQuestion(business, step) {
+  if (business.niche === "industrial") {
+    const industrialQuestions = {
+      quote_details:
+        "Gracias. Ahora cuéntame un poco más: tipo de equipo o sistema, fluido/material, capacidad aproximada y qué falla o necesidad tienen.",
+      quote_location: "¿En qué ciudad o planta se realizaría el servicio?",
+      quote_urgency: "¿Qué tan urgente es? Puedes responder: urgente, esta semana, este mes o programado."
+    };
+    return industrialQuestions[step];
+  }
+
+  const generalQuestions = {
+    quote_details: "Gracias. Ahora cuéntame los detalles principales del proyecto o servicio que necesitas.",
+    quote_location: "¿En qué ciudad o zona se realizaría?",
+    quote_urgency: "¿Cuándo lo necesitas: urgente, esta semana, este mes o programado?"
+  };
+  return generalQuestions[step];
+}
+
+function quoteSummary(data) {
+  return [
+    "Solicitud de cotización",
+    `Servicio: ${data.service || "No especificado"}`,
+    `Detalles: ${data.details || "No especificados"}`,
+    `Ubicación: ${data.location || "No especificada"}`,
+    `Urgencia: ${data.urgency || "No especificada"}`
+  ].join("\n");
+}
+
+async function startMainMenu(customer, business) {
+  await prisma.customer.update({
+    where: { id: customer.id },
+    data: { conversationState: "main_menu", pendingData: "{}" }
+  });
+  return {
+    intent: "main_menu",
+    status: "auto_replied",
+    reply: mainMenuReply(business)
+  };
+}
+
+async function startQuoteFlow(customer, business, seedText = "") {
+  const data = {};
+  const service = findServiceFromText(business.services, seedText);
+  if (service) data.service = service.name;
+
+  const conversationState = data.service ? "quote_details" : "quote_service";
+  await prisma.customer.update({
+    where: { id: customer.id },
+    data: {
+      conversationState,
+      pendingData: JSON.stringify(data),
+      lastIntent: "quote_request"
+    }
+  });
+
+  return {
+    intent: conversationState,
+    status: "auto_replied",
+    reply: data.service ? quoteDetailQuestion(business, "quote_details") : quoteIntroReply(business)
+  };
+}
+
+async function completeQuoteFlow(customer, data) {
+  const summary = quoteSummary(data);
+  await prisma.customer.update({
+    where: { id: customer.id },
+    data: {
+      conversationState: "idle",
+      pendingData: "{}",
+      leadStatus: "contactado",
+      needsHuman: true,
+      notes: [customer.notes, summary].filter(Boolean).join("\n\n"),
+      lastIntent: "quote_complete"
+    }
+  });
+
+  return {
+    intent: "quote_complete",
+    status: "needs_human",
+    reply: [
+      "Listo, dejé registrada tu solicitud para revisarla con el equipo.",
+      "",
+      summary,
+      "",
+      "Como depende de condiciones técnicas, no te doy un precio automático. Una persona del equipo revisará la información y te contactará para afinar la cotización."
+    ].join("\n")
+  };
 }
 
 function hasProjectDiagnosticInfo(text) {
@@ -737,7 +868,7 @@ async function buildStateReply({ business, customer, text }) {
     return {
       intent: "reset",
       status: "auto_replied",
-      reply: "Listo, empezamos de nuevo. Puedo ayudarte con información, precios, horarios o agendar una cita."
+      reply: `Listo, empezamos de nuevo.\n\n${mainMenuReply(business)}`
     };
   }
 
@@ -753,12 +884,112 @@ async function buildStateReply({ business, customer, text }) {
     };
   }
 
-  if (QUOTE_BASED_NICHES.includes(business.niche) && includesAny(text, quoteKeywords)) {
+  if (customer.conversationState === "main_menu") {
+    const choice = detectMainMenuChoice(text, business);
+
+    if (choice === "services") {
+      await prisma.customer.update({
+        where: { id: customer.id },
+        data: { conversationState: "main_menu", lastIntent: "services" }
+      });
+      return {
+        intent: "services",
+        status: "auto_replied",
+        reply: servicesReply(business)
+      };
+    }
+
+    if (choice === "quote") {
+      return startQuoteFlow(customer, business, text);
+    }
+
+    if (choice === "schedule") {
+      await prisma.customer.update({
+        where: { id: customer.id },
+        data: { conversationState: "scheduling_service", pendingData: "{}" }
+      });
+      return {
+        intent: "scheduling_service",
+        status: "scheduling",
+        reply: `Con gusto te ayudo a agendar. Estos son nuestros servicios:\n${formatServices(business.services, business)}\n\nDime el número o nombre del servicio.`
+      };
+    }
+
+    if (choice === "human") {
+      await prisma.customer.update({
+        where: { id: customer.id },
+        data: { conversationState: "needs_human", needsHuman: true, lastIntent: "needs_human" }
+      });
+      return {
+        intent: "needs_human",
+        status: "needs_human",
+        reply: "Claro, dejo esta conversación marcada para atención de una persona del equipo."
+      };
+    }
+
     return {
-      intent: "quote_request",
+      intent: "main_menu",
       status: "auto_replied",
-      reply: quoteRequestReply(business)
+      reply: `No estoy seguro de qué opción necesitas.\n\n${mainMenuReply(business)}`
     };
+  }
+
+  if (["quote_service", "quote_details", "quote_location", "quote_urgency"].includes(customer.conversationState)) {
+    const data = parsePendingData(customer);
+
+    if (customer.conversationState === "quote_service") {
+      const service = findServiceFromText(business.services, text);
+      if (!service && includesAny(text, servicesKeywords)) {
+        return {
+          intent: "quote_service",
+          status: "auto_replied",
+          reply: quoteIntroReply(business)
+        };
+      }
+
+      data.service = service?.name || text.trim();
+      await prisma.customer.update({
+        where: { id: customer.id },
+        data: { conversationState: "quote_details", pendingData: JSON.stringify(data) }
+      });
+
+      return {
+        intent: "quote_details",
+        status: "auto_replied",
+        reply: quoteDetailQuestion(business, "quote_details")
+      };
+    }
+
+    if (customer.conversationState === "quote_details") {
+      data.details = text.trim();
+      await prisma.customer.update({
+        where: { id: customer.id },
+        data: { conversationState: "quote_location", pendingData: JSON.stringify(data) }
+      });
+
+      return {
+        intent: "quote_location",
+        status: "auto_replied",
+        reply: quoteDetailQuestion(business, "quote_location")
+      };
+    }
+
+    if (customer.conversationState === "quote_location") {
+      data.location = text.trim();
+      await prisma.customer.update({
+        where: { id: customer.id },
+        data: { conversationState: "quote_urgency", pendingData: JSON.stringify(data) }
+      });
+
+      return {
+        intent: "quote_urgency",
+        status: "auto_replied",
+        reply: quoteDetailQuestion(business, "quote_urgency")
+      };
+    }
+
+    data.urgency = text.trim();
+    return completeQuoteFlow(customer, data);
   }
 
   if (customer.conversationState === "scheduling_service") {
@@ -845,6 +1076,26 @@ async function buildStateReply({ business, customer, text }) {
     };
   }
 
+  if (isGreetingOrShortHelp(text)) {
+    return startMainMenu(customer, business);
+  }
+
+  if (QUOTE_BASED_NICHES.includes(business.niche) && includesAny(text, strongQuoteKeywords)) {
+    return startQuoteFlow(customer, business, text);
+  }
+
+  if (includesAny(text, servicesKeywords)) {
+    await prisma.customer.update({
+      where: { id: customer.id },
+      data: { conversationState: "main_menu", lastIntent: "services" }
+    });
+    return {
+      intent: "services",
+      status: "auto_replied",
+      reply: servicesReply(business)
+    };
+  }
+
   const matchedFaq = business.faqs.find((faq) => normalize(text).includes(normalize(faq.question)));
   if (includesAny(text, scheduleKeywords)) {
     if (hasPastDateReference(text)) {
@@ -890,11 +1141,7 @@ async function buildStateReply({ business, customer, text }) {
     return { intent: "faq", status: "auto_replied", reply: matchedFaq.answer };
   }
 
-  return {
-    intent: "general",
-    status: "auto_replied",
-    reply: `Hola, soy el asistente de ${business.name}. Puedo ayudarte con información, precios, horarios y citas. ¿Qué necesitas hoy?`
-  };
+  return startMainMenu(customer, business);
 }
 
 export async function answerMessage({ businessId, from, text, channel = "web_or_whatsapp" }) {
