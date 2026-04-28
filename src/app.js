@@ -33,6 +33,12 @@ export function createApp() {
     res.redirect("/public/landing.html");
   });
 
+  app.get("/admin", (_req, res) => {
+    const adminUrl = process.env.ADMIN_URL || process.env.FRONTEND_ORIGIN;
+    if (adminUrl) return res.redirect(`${adminUrl.replace(/\/$/, "")}/admin`);
+    return res.redirect("/public/landing.html");
+  });
+
   app.use("/api/auth", authRouter);
   app.use("/api/dashboard", dashboardRouter);
   app.use("/api/inbox", inboxRouter);
