@@ -254,8 +254,7 @@ function projectDiagnosticExample(text) {
   ].join("\n");
 }
 function formatServices(services, business = null) {
-  const quoteBasedNiches = ["industrial", "servicios", "proyectos", "inmobiliaria", "educacion"];
-  const quoteBased = quoteBasedNiches.includes(business?.niche);
+  const quoteBased = isQuoteBasedBusiness(business || {});
   return services
     .map((service, index) => {
       const details = [];
@@ -1084,7 +1083,7 @@ async function buildStateReply({ business, customer, text }) {
     return startMainMenu(customer, business);
   }
 
-  if (QUOTE_BASED_NICHES.includes(business.niche) && includesAny(text, strongQuoteKeywords)) {
+  if (isQuoteBasedBusiness(business) && includesAny(text, strongQuoteKeywords)) {
     return startQuoteFlow(customer, business, text);
   }
 

@@ -1,5 +1,6 @@
 import { Router } from "express";
 import { z } from "zod";
+import { businessTemplates } from "../../config/businessTemplates.js";
 import { prisma } from "../../prisma.js";
 import { requireAuth, requireBusinessAccess } from "../auth/auth.middleware.js";
 
@@ -116,6 +117,15 @@ const includeBusinessRelations = {
   faqs: { orderBy: { createdAt: "asc" } }
 };
 
+function normalizeServices(services) {
+  return services.map((service) => ({
+    name: service.name,
+    durationMinutes: service.durationMinutes,
+    price: service.price ?? 0,
+    bufferMinutes: service.bufferMinutes ?? 10
+  }));
+}
+
 businessRouter.get("/", async (req, res, next) => {
   try {
     const businessIds = req.memberships.map((membership) => membership.businessId);
@@ -147,12 +157,17 @@ businessRouter.get("/:id", async (req, res, next) => {
 businessRouter.post("/", async (req, res, next) => {
   try {
     const parsed = businessSchema.parse(req.body);
+    const template = businessTemplates[parsed.niche];
+    const servicesToCreate = parsed.services.length ? parsed.services : (template?.services || []);
+    const faqsToCreate = parsed.faqs.length ? parsed.faqs : (template?.faqs || []);
+    const automationType = req.body.automationType || template?.automationType || parsed.automationType || "appointment";
+
     const business = await prisma.$transaction(async (tx) => {
       const created = await tx.business.create({
         data: {
           name: parsed.name,
           niche: parsed.niche,
-          automationType: parsed.automationType,
+          automationType,
           phone: parsed.phone,
           address: parsed.address,
           hours: parsed.hours,
@@ -175,8 +190,8 @@ businessRouter.post("/", async (req, res, next) => {
           cancellationMinHours: parsed.cancellationMinHours,
           defaultBufferMinutes: parsed.defaultBufferMinutes,
           holdMinutes: parsed.holdMinutes,
-          faqs: { create: parsed.faqs },
-          services: { create: parsed.services }
+          faqs: { create: faqsToCreate },
+          services: { create: normalizeServices(servicesToCreate) }
         },
         include: includeBusinessRelations
       });
