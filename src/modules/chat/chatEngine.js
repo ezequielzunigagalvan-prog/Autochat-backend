@@ -40,6 +40,10 @@ function includesAny(text, keywords) {
 }
 
 function isQuoteBasedBusiness(business) {
+  if (business.automationType) {
+    return business.automationType === "quote" || business.automationType === "hybrid";
+  }
+
   return QUOTE_BASED_NICHES.includes(business.niche);
 }
 
