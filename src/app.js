@@ -16,6 +16,7 @@ import { remindersRouter } from "./modules/reminders/reminders.routes.js";
 import { calendarRouter } from "./modules/calendar/calendar.routes.js";
 import { leadsRouter } from "./modules/leads/leads.routes.js";
 import { publicRouter } from "./modules/public/public.routes.js";
+import { internalRouter } from "./modules/internal/internal.routes.js";
 
 export function createApp() {
   const app = express();
@@ -48,6 +49,7 @@ export function createApp() {
   app.use("/api/calendar", calendarRouter);
   app.use("/api/leads", leadsRouter);
   app.use("/api/public", publicRouter);
+  app.use("/api/internal", internalRouter);
   app.use("/api/businesses", businessRouter);
   app.use("/api/appointments", appointmentRouter);
   app.use("/api/conversations", conversationRouter);

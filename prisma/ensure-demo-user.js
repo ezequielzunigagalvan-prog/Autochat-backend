@@ -7,6 +7,7 @@ const email = (process.env.DEMO_ADMIN_EMAIL || "admin@autochat.test").toLowerCas
 const password = process.env.DEMO_ADMIN_PASSWORD || "123456";
 const name = process.env.DEMO_ADMIN_NAME || "Demo Admin";
 const businessId = process.env.DEMO_BUSINESS_ID || "demo_proyectos";
+const isInternalAdmin = process.env.DEMO_INTERNAL_ADMIN !== "false";
 
 async function ensureBusiness() {
   const existing = await prisma.business.findFirst({
@@ -66,12 +67,14 @@ async function main() {
     where: { email },
     update: {
       name,
-      passwordHash: hashPassword(password)
+      passwordHash: hashPassword(password),
+      isInternalAdmin
     },
     create: {
       name,
       email,
-      passwordHash: hashPassword(password)
+      passwordHash: hashPassword(password),
+      isInternalAdmin
     }
   });
 

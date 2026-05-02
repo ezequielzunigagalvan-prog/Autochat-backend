@@ -28,6 +28,22 @@ export function canAccessBusiness(req, businessId) {
   return req.memberships?.some((membership) => membership.businessId === businessId);
 }
 
+export function isInternalAdmin(user) {
+  const adminEmails = String(process.env.INTERNAL_ADMIN_EMAILS || "")
+    .split(",")
+    .map((email) => email.trim().toLowerCase())
+    .filter(Boolean);
+
+  return Boolean(user?.isInternalAdmin || adminEmails.includes(String(user?.email || "").toLowerCase()));
+}
+
+export function requireInternalAdmin(req, res, next) {
+  if (!isInternalAdmin(req.user)) {
+    return res.status(403).json({ error: "Internal admin access required" });
+  }
+  next();
+}
+
 export function requireBusinessAccess(req, res, businessId) {
   if (!canAccessBusiness(req, businessId)) {
     res.status(403).json({ error: "Business access denied" });
