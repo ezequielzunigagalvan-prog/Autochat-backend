@@ -269,6 +269,10 @@ async function completeQuoteFlow(customer, data) {
       leadStatus: "contactado",
       needsHuman: true,
       notes: [customer.notes, summary].filter(Boolean).join("\n\n"),
+      quoteService: data.service || "",
+      quoteDetails: data.details || "",
+      quoteLocation: data.location || "",
+      quoteUrgency: data.urgency || "",
       lastIntent: "quote_complete"
     }
   });

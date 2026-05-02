@@ -154,6 +154,10 @@ model Customer {
   needsHuman    Boolean        @default(false)
   leadStatus     String        @default("nuevo")
   lastIntent    String         @default("")
+  quoteService  String         @default("")
+  quoteDetails  String         @default("")
+  quoteLocation String         @default("")
+  quoteUrgency  String         @default("")
   pendingServiceId  String?
   pendingStartsAt   DateTime?
   pendingData       String     @default("{}")

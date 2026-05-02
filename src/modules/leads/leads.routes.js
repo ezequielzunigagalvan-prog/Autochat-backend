@@ -91,7 +91,12 @@ leadsRouter.post("/", async (req, res, next) => {
           where: { id: customer.id },
           data: {
             notes: mergedNotes || customer.notes,
-            lastIntent: customer.lastIntent || previousCustomer.lastIntent,
+            leadStatus: previousCustomer.lastIntent === "quote_complete" ? "contactado" : customer.leadStatus,
+            lastIntent: previousCustomer.lastIntent || customer.lastIntent,
+            quoteService: customer.quoteService || previousCustomer.quoteService,
+            quoteDetails: customer.quoteDetails || previousCustomer.quoteDetails,
+            quoteLocation: customer.quoteLocation || previousCustomer.quoteLocation,
+            quoteUrgency: customer.quoteUrgency || previousCustomer.quoteUrgency,
             needsHuman: true
           }
         });
