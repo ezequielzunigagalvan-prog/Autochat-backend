@@ -12,6 +12,7 @@ const leadSchema = z.object({
   phone: z.string().min(7),
   email: z.string().email().or(z.literal("")).optional().default(""),
   notes: z.string().optional().default(""),
+  previousFrom: z.string().optional().default(""),
   source: z.string().optional().default("widget_web")
 });
 
@@ -59,6 +60,44 @@ leadsRouter.post("/", async (req, res, next) => {
         lastIntent: "lead_captured"
       }
     });
+
+    if (parsed.previousFrom && parsed.previousFrom !== parsed.phone) {
+      const previousCustomer = await prisma.customer.findUnique({
+        where: {
+          businessId_phone: {
+            businessId: business.id,
+            phone: parsed.previousFrom
+          }
+        }
+      });
+
+      await prisma.conversation.updateMany({
+        where: { businessId: business.id, from: parsed.previousFrom },
+        data: { customerId: customer.id, from: customer.phone }
+      });
+
+      if (previousCustomer && previousCustomer.id !== customer.id) {
+        await prisma.appointment.updateMany({
+          where: { customerId: previousCustomer.id },
+          data: {
+            customerId: customer.id,
+            customerName: customer.name,
+            customerPhone: customer.phone
+          }
+        });
+
+        const mergedNotes = [previousCustomer.notes, customer.notes].filter(Boolean).join("\n\n");
+        await prisma.customer.update({
+          where: { id: customer.id },
+          data: {
+            notes: mergedNotes || customer.notes,
+            lastIntent: customer.lastIntent || previousCustomer.lastIntent,
+            needsHuman: true
+          }
+        });
+        await prisma.customer.delete({ where: { id: previousCustomer.id } }).catch(() => {});
+      }
+    }
 
     await notifyLead({ business, customer, source: parsed.source }).catch((error) => {
       console.warn("Lead notification failed:", error.message);

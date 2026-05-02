@@ -9,30 +9,21 @@
 
   const widgetDefaults = {
     demo_barberia: {
-      name: "Cliente Barbería",
-      phone: "+525551111111",
-      email: "cliente@demo.com",
       prompt: "Quiero un corte clásico mañana por la tarde",
       title: "AutoChat Barbería",
       intro: "Prueba cómo el asistente responde servicios, horarios y agenda.",
-      hello: "Hola. Soy el asistente de la barbería demo. Puedo ayudarte con servicios, precios, horarios y solicitudes de cita."
+      hello: "Hola. Soy el asistente de la barbería demo. ¿En qué puedo ayudarte hoy?"
     },
     demo_dental: {
-      name: "Paciente Demo",
-      phone: "+525552222222",
-      email: "paciente@demo.com",
       prompt: "Quiero una valoración dental esta semana",
       title: "AutoChat Dental",
-      intro: "Prueba cómo el asistente orienta pacientes y captura solicitudes.",
-      hello: "Hola. Soy el asistente de la clínica dental demo. Puedo orientarte con tratamientos, horarios y solicitudes de cita."
+      intro: "Orientación inicial y captura de pacientes.",
+      hello: "Hola. Soy el asistente de la clínica dental demo. ¿En qué puedo ayudarte hoy?"
     },
     demo_proyectos: {
-      name: "Alejandro",
-      phone: "+525553333333",
-      email: "contacto@negocio.com",
       prompt: "Tengo una estética, atiendo lunes a sábado, hago uñas y faciales, quiero capturar nombre, WhatsApp, servicio y horario.",
       title: "Diagnóstico AutoChat",
-      intro: "Deja tus datos y cuéntame tu proyecto para generar un ejemplo.",
+      intro: "Cuéntame tu proyecto y genero un ejemplo.",
       hello: "Hola. Para preparar tu diagnóstico, cuéntame qué negocio tienes, tus servicios, horarios, qué datos necesitas pedir y qué quieres automatizar."
     }
   };
@@ -47,16 +38,18 @@
         defaults.intro = config.intro || defaults.intro;
         defaults.hello = config.hello || defaults.hello;
         defaults.prompt = config.prompt || defaults.prompt;
-        defaults.name = "";
-        defaults.phone = "";
-        defaults.email = "";
       }
     } catch {
       // Keep local defaults if the public config cannot be loaded.
     }
   }
 
-  let from = "";
+  let from = sessionStorage.getItem(`autochat_from_${businessId}`);
+  if (!from) {
+    from = `web-${businessId || "default"}-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+    sessionStorage.setItem(`autochat_from_${businessId}`, from);
+  }
+  let contactCaptured = false;
 
   function escapeHtml(value) {
     return String(value || "")
@@ -84,10 +77,25 @@
       const matches = [...String(text).matchAll(/^\s*(\d+)\.\s+(.+)$/gm)].slice(0, 5);
       if (matches.length) return matches.map((match) => [match[2].replace(/\s*\(.+\)$/, "").slice(0, 38), match[1]]);
     }
-    if (normalized.includes("cotización") || normalized.includes("cotizacion")) {
-      return [["Ver servicios", "servicios"], ["Hablar con alguien", "atención"]];
-    }
     return [];
+  }
+
+  function initialGreeting() {
+    return /en qu[eé] puedo ayudarte/i.test(defaults.hello)
+      ? defaults.hello
+      : `${defaults.hello}\n\n¿En qué puedo ayudarte hoy?`;
+  }
+
+  function shouldAskContact(conversation) {
+    if (contactCaptured) return false;
+    const status = conversation?.status || "";
+    const intent = conversation?.outboundText || "";
+    return (
+      ["needs_human", "appointment_confirmed", "appointment_rescheduled", "appointment_cancelled"].includes(status) ||
+      intent.includes("dejé registrada tu solicitud") ||
+      intent.includes("revisará la información") ||
+      intent.includes("pasar con una persona")
+    );
   }
 
   const root = document.createElement("div");
@@ -100,49 +108,26 @@
       #ac-panel{display:none;width:380px;max-width:calc(100vw - 28px);height:590px;max-height:calc(100vh - 34px);background:#f7f8f6;border:1px solid #d9e1db;border-radius:22px;box-shadow:0 22px 60px rgba(17,29,24,.24);overflow:hidden}
       .ac-header{min-height:86px;background:#1f5c50;color:#fff;padding:16px;display:grid;grid-template-columns:42px 1fr 34px;gap:12px;align-items:center}
       .ac-avatar{width:42px;height:42px;border-radius:999px;background:#eef7f0;color:#1f5c50;display:grid;place-items:center;font-weight:900;border:1px solid rgba(255,255,255,.42)}
-      .ac-title{display:grid;gap:2px;min-width:0}
-      .ac-title strong{font-size:18px;line-height:1.1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-      .ac-title span{font-size:13px;opacity:.86;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+      .ac-title{display:grid;gap:2px;min-width:0}.ac-title strong{font-size:18px;line-height:1.1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.ac-title span{font-size:13px;opacity:.86;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
       #ac-close{width:34px;height:34px;border:0;border-radius:999px;background:rgba(255,255,255,.14);color:#fff;font-size:18px;cursor:pointer}
-      #ac-lead{height:504px;padding:18px;display:grid;align-content:center;gap:10px}
-      #ac-lead strong{font-size:20px;color:#17211d}
-      #ac-lead span{color:#64706a;font-size:14px;line-height:1.45}
-      #ac-lead input,#ac-input{min-height:44px;border:1px solid #cad4ce;border-radius:14px;background:#fff;padding:0 13px;font:inherit;color:#17211d}
-      #ac-lead button,#ac-form button{min-height:44px;border:0;border-radius:14px;background:#c66d42;color:#fff;font-weight:900;cursor:pointer}
-      #ac-lead-error{color:#a23b27;min-height:16px}
-      #ac-chat{display:none;height:504px;grid-template-rows:1fr auto}
+      #ac-chat{height:504px;display:grid;grid-template-rows:1fr auto}
       #ac-messages{height:424px;overflow:auto;padding:18px 14px;display:grid;gap:10px;align-content:start;background:linear-gradient(#fff,#f7f8f6)}
-      .ac-bubble{display:grid;gap:5px;max-width:90%}
-      .ac-bubble span{font-size:12px;color:#708078}
-      .ac-bubble div{padding:11px 13px;border-radius:18px;white-space:pre-line;line-height:1.38;box-shadow:0 1px 0 rgba(0,0,0,.03)}
-      .ac-bubble.bot{justify-self:start}.ac-bubble.bot div{background:#fff;border:1px solid #e3e8e4;border-top-left-radius:7px}
-      .ac-bubble.me{justify-self:end}.ac-bubble.me div{background:#e6f3eb;color:#143d30;border-top-right-radius:7px}
-      .ac-options{display:flex;flex-wrap:wrap;gap:8px;margin-top:2px}
-      .ac-options button{border:1px solid #cbd5cf;background:#fff;color:#3f4b45;border-radius:999px;min-height:36px;padding:0 12px;cursor:pointer}
-      .ac-options button:hover{border-color:#1f5c50;color:#1f5c50}
-      #ac-form{display:grid;grid-template-columns:1fr 48px;gap:8px;padding:12px;border-top:1px solid #e0e6e1;background:#fff}
-      #ac-form button{border-radius:999px}
-      @media(max-width:520px){#autochat-widget-root{right:10px;bottom:10px}#ac-panel{width:calc(100vw - 20px);height:calc(100vh - 20px);max-height:none;border-radius:18px}#ac-lead,#ac-chat{height:calc(100vh - 106px)}#ac-messages{height:calc(100vh - 186px)}}
+      .ac-bubble{display:grid;gap:5px;max-width:90%}.ac-bubble span{font-size:12px;color:#708078}.ac-bubble div{padding:11px 13px;border-radius:18px;white-space:pre-line;line-height:1.38;box-shadow:0 1px 0 rgba(0,0,0,.03)}
+      .ac-bubble.bot{justify-self:start}.ac-bubble.bot div{background:#fff;border:1px solid #e3e8e4;border-top-left-radius:7px}.ac-bubble.me{justify-self:end}.ac-bubble.me div{background:#e6f3eb;color:#143d30;border-top-right-radius:7px}
+      .ac-options{display:flex;flex-wrap:wrap;gap:8px;margin-top:2px}.ac-options button{border:1px solid #cbd5cf;background:#fff;color:#3f4b45;border-radius:999px;min-height:36px;padding:0 12px;cursor:pointer}.ac-options button:hover{border-color:#1f5c50;color:#1f5c50}
+      #ac-form,.ac-contact-form{display:grid;grid-template-columns:1fr 48px;gap:8px;padding:12px;border-top:1px solid #e0e6e1;background:#fff}
+      #ac-input,.ac-contact-form input{min-height:44px;border:1px solid #cad4ce;border-radius:14px;background:#fff;padding:0 13px;font:inherit;color:#17211d}
+      #ac-form button,.ac-contact-form button{min-height:44px;border:0;border-radius:999px;background:#c66d42;color:#fff;font-weight:900;cursor:pointer}
+      .ac-contact-form{grid-template-columns:1fr;align-content:start}.ac-contact-form strong{color:#17211d}.ac-contact-form small{color:#a23b27;min-height:16px}
+      @media(max-width:520px){#autochat-widget-root{right:10px;bottom:10px}#ac-panel{width:calc(100vw - 20px);height:calc(100vh - 20px);max-height:none;border-radius:18px}#ac-chat{height:calc(100vh - 106px)}#ac-messages{height:calc(100vh - 186px)}}
     </style>
     <button id="ac-toggle" type="button">Chat</button>
     <section id="ac-panel" aria-label="Chat de atención">
       <header class="ac-header">
         <div class="ac-avatar">AI</div>
-        <div class="ac-title">
-          <strong>${escapeHtml(defaults.title)}</strong>
-          <span>${escapeHtml(defaults.intro)}</span>
-        </div>
+        <div class="ac-title"><strong>${escapeHtml(defaults.title)}</strong><span>${escapeHtml(defaults.intro)}</span></div>
         <button id="ac-close" type="button" aria-label="Cerrar chat">×</button>
       </header>
-      <form id="ac-lead">
-        <strong>Antes de iniciar</strong>
-        <span>${escapeHtml(defaults.intro)}</span>
-        <input id="ac-name" value="${escapeHtml(defaults.name)}" placeholder="Nombre" required />
-        <input id="ac-phone" value="${escapeHtml(defaults.phone)}" placeholder="Teléfono / WhatsApp" required />
-        <input id="ac-email" value="${escapeHtml(defaults.email)}" placeholder="Correo opcional" type="email" />
-        <button type="submit">Iniciar chat</button>
-        <small id="ac-lead-error"></small>
-      </form>
       <div id="ac-chat">
         <div id="ac-messages"></div>
         <form id="ac-form">
@@ -157,40 +142,10 @@
   const toggle = root.querySelector("#ac-toggle");
   const panel = root.querySelector("#ac-panel");
   const close = root.querySelector("#ac-close");
-  const leadForm = root.querySelector("#ac-lead");
-  const leadError = root.querySelector("#ac-lead-error");
   const chat = root.querySelector("#ac-chat");
   const messages = root.querySelector("#ac-messages");
   const form = root.querySelector("#ac-form");
   const input = root.querySelector("#ac-input");
-
-  function openPanel() {
-    panel.style.display = "block";
-    toggle.style.display = "none";
-  }
-
-  function closePanel() {
-    panel.style.display = "none";
-    toggle.style.display = "block";
-    resetWidget();
-  }
-
-  function resetWidget() {
-    from = "";
-    messages.innerHTML = "";
-    leadError.textContent = "";
-    leadForm.style.display = "grid";
-    chat.style.display = "none";
-    root.querySelector("#ac-name").value = defaults.name;
-    root.querySelector("#ac-phone").value = defaults.phone;
-    root.querySelector("#ac-email").value = defaults.email;
-    input.value = defaults.prompt;
-  }
-
-  function sendQuickReply(value) {
-    input.value = value;
-    form.dispatchEvent(new Event("submit", { cancelable: true, bubbles: true }));
-  }
 
   function addMessage(text, who) {
     const wrap = document.createElement("article");
@@ -218,6 +173,74 @@
     messages.scrollTop = messages.scrollHeight;
   }
 
+  function addContactForm() {
+    if (root.querySelector("#ac-contact-form")) return;
+    addMessage("Para que el equipo pueda darte seguimiento, déjame tus datos de contacto.", "bot");
+    form.style.display = "none";
+    const contactForm = document.createElement("form");
+    contactForm.id = "ac-contact-form";
+    contactForm.className = "ac-contact-form";
+    contactForm.innerHTML = `
+      <strong>Datos de contacto</strong>
+      <input id="ac-name" placeholder="Nombre" required />
+      <input id="ac-phone" placeholder="Teléfono / WhatsApp" required />
+      <input id="ac-email" placeholder="Correo opcional" type="email" />
+      <button type="submit">Enviar datos</button>
+      <small id="ac-lead-error"></small>
+    `;
+    chat.appendChild(contactForm);
+
+    contactForm.addEventListener("submit", async (event) => {
+      event.preventDefault();
+      const errorEl = contactForm.querySelector("#ac-lead-error");
+      errorEl.textContent = "";
+      const name = contactForm.querySelector("#ac-name").value.trim();
+      const phone = contactForm.querySelector("#ac-phone").value.trim();
+      const email = contactForm.querySelector("#ac-email").value.trim();
+      try {
+        const response = await fetch(`${apiUrl}/api/leads`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            businessId,
+            name,
+            phone,
+            email,
+            previousFrom: from,
+            source: "widget_web",
+            notes: "Lead capturado al final del chat"
+          })
+        });
+        const body = await response.json();
+        if (!response.ok) throw new Error(body.error || "No se pudieron guardar los datos.");
+        from = body.from;
+        sessionStorage.setItem(`autochat_from_${businessId}`, from);
+        contactCaptured = true;
+        contactForm.remove();
+        form.style.display = "grid";
+        addMessage("Gracias. Ya guardé tus datos y el equipo podrá dar seguimiento a tu solicitud.", "bot");
+      } catch (error) {
+        errorEl.textContent = error.message || "No se pudieron guardar los datos.";
+      }
+    });
+  }
+
+  function openPanel() {
+    panel.style.display = "block";
+    toggle.style.display = "none";
+    if (!messages.children.length) addMessage(initialGreeting(), "bot");
+  }
+
+  function closePanel() {
+    panel.style.display = "none";
+    toggle.style.display = "block";
+  }
+
+  function sendQuickReply(value) {
+    input.value = value;
+    form.dispatchEvent(new Event("submit", { cancelable: true, bubbles: true }));
+  }
+
   toggle.addEventListener("click", openPanel);
   close.addEventListener("click", closePanel);
   window.AutoChatWidget = { open: openPanel, close: closePanel };
@@ -234,39 +257,6 @@
     if (window.location.hash === "#chat") openPanel();
   }, 0);
 
-  leadForm.addEventListener("submit", async (event) => {
-    event.preventDefault();
-    leadError.textContent = "";
-    const name = root.querySelector("#ac-name").value.trim();
-    const phone = root.querySelector("#ac-phone").value.trim();
-    const email = root.querySelector("#ac-email").value.trim();
-
-    try {
-      const response = await fetch(`${apiUrl}/api/leads`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          businessId,
-          name,
-          phone,
-          email,
-          source: "widget_web",
-          notes: "Lead capturado desde widget web"
-        })
-      });
-      const body = await response.json();
-      if (!response.ok) throw new Error(body.error || "No se pudo iniciar el chat.");
-
-      from = body.from;
-      leadForm.style.display = "none";
-      chat.style.display = "grid";
-      addMessage(defaults.hello, "bot");
-      addMessage("¿En qué puedo ayudarte hoy?", "bot");
-    } catch (error) {
-      leadError.textContent = error.message || "No se pudo iniciar el chat.";
-    }
-  });
-
   form.addEventListener("submit", async (event) => {
     event.preventDefault();
     const text = input.value.trim();
@@ -282,6 +272,7 @@
       });
       const body = await response.json();
       addMessage(body.outboundText || "No pude responder en este momento.", "bot");
+      if (shouldAskContact(body)) addContactForm();
     } catch {
       addMessage("No pude conectar con el asistente. Intenta de nuevo en un momento.", "bot");
     }
