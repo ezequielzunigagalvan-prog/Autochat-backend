@@ -110,16 +110,16 @@
       .ac-avatar{width:42px;height:42px;border-radius:999px;background:#eef7f0;color:#1f5c50;display:grid;place-items:center;font-weight:900;border:1px solid rgba(255,255,255,.42)}
       .ac-title{display:grid;gap:2px;min-width:0}.ac-title strong{font-size:18px;line-height:1.1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.ac-title span{font-size:13px;opacity:.86;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
       #ac-close{width:34px;height:34px;border:0;border-radius:999px;background:rgba(255,255,255,.14);color:#fff;font-size:18px;cursor:pointer}
-      #ac-chat{height:504px;display:grid;grid-template-rows:1fr auto}
-      #ac-messages{height:424px;overflow:auto;padding:18px 14px;display:grid;gap:10px;align-content:start;background:linear-gradient(#fff,#f7f8f6)}
+      #ac-chat{height:504px;display:grid;grid-template-rows:minmax(0,1fr) auto}
+      #ac-messages{min-height:0;overflow:auto;padding:18px 14px;display:grid;gap:10px;align-content:start;background:linear-gradient(#fff,#f7f8f6)}
       .ac-bubble{display:grid;gap:5px;max-width:90%}.ac-bubble span{font-size:12px;color:#708078}.ac-bubble div{padding:11px 13px;border-radius:18px;white-space:pre-line;line-height:1.38;box-shadow:0 1px 0 rgba(0,0,0,.03)}
       .ac-bubble.bot{justify-self:start}.ac-bubble.bot div{background:#fff;border:1px solid #e3e8e4;border-top-left-radius:7px}.ac-bubble.me{justify-self:end}.ac-bubble.me div{background:#e6f3eb;color:#143d30;border-top-right-radius:7px}
       .ac-options{display:flex;flex-wrap:wrap;gap:8px;margin-top:2px}.ac-options button{border:1px solid #cbd5cf;background:#fff;color:#3f4b45;border-radius:999px;min-height:36px;padding:0 12px;cursor:pointer}.ac-options button:hover{border-color:#1f5c50;color:#1f5c50}
       #ac-form,.ac-contact-form{display:grid;grid-template-columns:1fr 48px;gap:8px;padding:12px;border-top:1px solid #e0e6e1;background:#fff}
       #ac-input,.ac-contact-form input{min-height:44px;border:1px solid #cad4ce;border-radius:14px;background:#fff;padding:0 13px;font:inherit;color:#17211d}
       #ac-form button,.ac-contact-form button{min-height:44px;border:0;border-radius:999px;background:#c66d42;color:#fff;font-weight:900;cursor:pointer}
-      .ac-contact-form{grid-template-columns:1fr;align-content:start}.ac-contact-form strong{color:#17211d}.ac-contact-form small{color:#a23b27;min-height:16px}
-      @media(max-width:520px){#autochat-widget-root{right:10px;bottom:10px}#ac-panel{width:calc(100vw - 20px);height:calc(100vh - 20px);max-height:none;border-radius:18px}#ac-chat{height:calc(100vh - 106px)}#ac-messages{height:calc(100vh - 186px)}}
+      .ac-contact-form{grid-template-columns:1fr;align-content:start;max-height:250px;overflow:auto}.ac-contact-form strong{color:#17211d}.ac-contact-form small{color:#a23b27;min-height:16px}
+      @media(max-width:520px){#autochat-widget-root{right:10px;bottom:10px}#ac-panel{width:calc(100vw - 20px);height:calc(100vh - 20px);max-height:none;border-radius:18px}#ac-chat{height:calc(100vh - 106px)}#ac-messages{min-height:0}.ac-contact-form{max-height:280px}}
     </style>
     <button id="ac-toggle" type="button">Chat</button>
     <section id="ac-panel" aria-label="Chat de atención">
@@ -177,6 +177,7 @@
     if (root.querySelector("#ac-contact-form")) return;
     addMessage("Para que el equipo pueda darte seguimiento, déjame tus datos de contacto.", "bot");
     form.style.display = "none";
+    chat.classList.add("contact-open");
     const contactForm = document.createElement("form");
     contactForm.id = "ac-contact-form";
     contactForm.className = "ac-contact-form";
@@ -217,6 +218,7 @@
         sessionStorage.setItem(`autochat_from_${businessId}`, from);
         contactCaptured = true;
         contactForm.remove();
+        chat.classList.remove("contact-open");
         form.style.display = "grid";
         addMessage("Gracias. Ya guardé tus datos y el equipo podrá dar seguimiento a tu solicitud.", "bot");
       } catch (error) {
