@@ -101,7 +101,10 @@ const customerUpdateSchema = z.object({
   name: z.string().min(2).optional(),
   email: z.string().email().or(z.literal("")).optional(),
   notes: z.string().optional(),
-  leadStatus: z.enum(["nuevo", "contactado", "cita_agendada", "perdido"]).optional()
+  leadStatus: z.enum(["nuevo", "contactado", "cita_agendada", "ganado", "perdido"]).optional(),
+  nextAction: z.string().optional(),
+  followUpAt: z.string().datetime().or(z.literal("")).nullable().optional(),
+  assignedTo: z.string().optional()
 });
 
 const blockSchema = z.object({
@@ -415,7 +418,14 @@ businessRouter.put("/:id/customers/:customerId", async (req, res, next) => {
 
     const customer = await prisma.customer.update({
       where: { id: existing.id },
-      data: parsed
+      data: {
+        ...parsed,
+        followUpAt: parsed.followUpAt === "" || parsed.followUpAt === null
+          ? null
+          : parsed.followUpAt
+            ? new Date(parsed.followUpAt)
+            : undefined
+      }
     });
     res.json(customer);
   } catch (error) {

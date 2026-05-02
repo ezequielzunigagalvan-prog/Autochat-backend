@@ -10,17 +10,22 @@ const manualReplySchema = z.object({
   text: z.string().min(1)
 });
 
+const leadStatuses = ["nuevo", "contactado", "cita_agendada", "ganado", "perdido"];
+
 const leadUpdateSchema = z.object({
-  leadStatus: z.enum(["nuevo", "contactado", "cita_agendada", "perdido"]).optional(),
+  leadStatus: z.enum(leadStatuses).optional(),
   notes: z.string().optional(),
-  needsHuman: z.boolean().optional()
+  needsHuman: z.boolean().optional(),
+  nextAction: z.string().optional(),
+  followUpAt: z.string().datetime().or(z.literal("")).nullable().optional(),
+  assignedTo: z.string().optional()
 });
 
 inboxRouter.get("/:businessId", async (req, res, next) => {
   try {
     if (!requireBusinessAccess(req, res, req.params.businessId)) return;
     const status = String(req.query.status || "");
-    const statusFilter = ["nuevo", "contactado", "cita_agendada", "perdido"].includes(status)
+    const statusFilter = leadStatuses.includes(status)
       ? { leadStatus: status }
       : {};
     const customers = await prisma.customer.findMany({
@@ -51,7 +56,14 @@ inboxRouter.patch("/:businessId/customers/:customerId/lead", async (req, res, ne
       data: {
         leadStatus: parsed.leadStatus,
         notes: parsed.notes,
-        needsHuman: parsed.needsHuman
+        needsHuman: parsed.needsHuman,
+        nextAction: parsed.nextAction,
+        followUpAt: parsed.followUpAt === "" || parsed.followUpAt === null
+          ? null
+          : parsed.followUpAt
+            ? new Date(parsed.followUpAt)
+            : undefined,
+        assignedTo: parsed.assignedTo
       },
       include: {
         conversations: { orderBy: { createdAt: "desc" }, take: 50 },

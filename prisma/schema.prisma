@@ -158,6 +158,9 @@ model Customer {
   quoteDetails  String         @default("")
   quoteLocation String         @default("")
   quoteUrgency  String         @default("")
+  nextAction    String         @default("")
+  followUpAt    DateTime?
+  assignedTo    String         @default("")
   pendingServiceId  String?
   pendingStartsAt   DateTime?
   pendingData       String     @default("{}")
