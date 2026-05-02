@@ -81,8 +81,8 @@ function detectMainMenuChoice(text, business) {
 
 function servicesReply(business) {
   const nextStep = isQuoteBasedBusiness(business)
-    ? "Si quieres una cotización, responde 2 o dime qué servicio te interesa."
-    : "Si quieres agendar, responde 2 o dime qué servicio y horario prefieres.";
+    ? "Responde con el número o escribe el nombre del servicio que quieres cotizar."
+    : "Responde con el número o escribe el nombre del servicio que quieres agendar.";
 
   return [
     "Estos son los servicios disponibles:",
@@ -90,6 +90,99 @@ function servicesReply(business) {
     "",
     nextStep
   ].join("\n");
+}
+
+function serviceOptionsContext(business) {
+  return {
+    flow: "services_list",
+    options: business.services.map((service) => ({
+      id: service.id,
+      name: service.name
+    }))
+  };
+}
+
+function findServiceFromContext({ business, customer, text }) {
+  const pending = parsePendingData(customer);
+  const options = Array.isArray(pending.options) ? pending.options : [];
+  const normalized = normalize(text);
+  const number = Number.parseInt(normalized, 10);
+
+  if (Number.isInteger(number) && number > 0) {
+    const option = options[number - 1];
+    if (option) {
+      return business.services.find((service) => service.id === option.id || service.name === option.name);
+    }
+  }
+
+  const option = options.find((item) => {
+    const optionName = normalize(item.name);
+    return optionName.includes(normalized) || normalized.includes(optionName);
+  });
+  if (option) {
+    return business.services.find((service) => service.id === option.id || service.name === option.name);
+  }
+
+  return findServiceFromText(business.services, text);
+}
+
+async function startServiceSelection(customer, business) {
+  await prisma.customer.update({
+    where: { id: customer.id },
+    data: {
+      conversationState: "select_service",
+      pendingData: JSON.stringify(serviceOptionsContext(business)),
+      lastIntent: "services"
+    }
+  });
+
+  return {
+    intent: "select_service",
+    status: "auto_replied",
+    reply: servicesReply(business)
+  };
+}
+
+async function handleServiceSelection({ business, customer, service }) {
+  if (isQuoteBasedBusiness(business)) {
+    const data = { service: service.name };
+    await prisma.customer.update({
+      where: { id: customer.id },
+      data: {
+        conversationState: "quote_details",
+        pendingData: JSON.stringify(data),
+        lastIntent: "quote_service_selected"
+      }
+    });
+
+    return {
+      intent: "quote_details",
+      status: "auto_replied",
+      reply: [
+        "Perfecto. Has seleccionado:",
+        "",
+        service.name,
+        "",
+        quoteDetailQuestion(business, "quote_details")
+      ].join("\n")
+    };
+  }
+
+  await prisma.customer.update({
+    where: { id: customer.id },
+    data: {
+      conversationState: "scheduling_datetime",
+      pendingServiceId: service.id,
+      pendingData: "{}",
+      lastIntent: "scheduling_service_selected"
+    }
+  });
+
+  return {
+    intent: "scheduling_datetime",
+    status: "scheduling",
+    reply: `Perfecto, ${service.name}. ¿Qué día y hora te conviene? Por ejemplo: mañana a las 4 pm o 27/04 16:00.`
+  };
 }
 
 function quoteIntroReply(business) {
@@ -891,15 +984,7 @@ async function buildStateReply({ business, customer, text }) {
     const choice = detectMainMenuChoice(text, business);
 
     if (choice === "services") {
-      await prisma.customer.update({
-        where: { id: customer.id },
-        data: { conversationState: "main_menu", lastIntent: "services" }
-      });
-      return {
-        intent: "services",
-        status: "auto_replied",
-        reply: servicesReply(business)
-      };
+      return startServiceSelection(customer, business);
     }
 
     if (choice === "quote") {
@@ -933,7 +1018,25 @@ async function buildStateReply({ business, customer, text }) {
     return {
       intent: "main_menu",
       status: "auto_replied",
-      reply: `No estoy seguro de qué opción necesitas.\n\n${mainMenuReply(business)}`
+      reply: `No estoy seguro de qué opción necesitas. Responde 1, 2 o 3, o escribe servicios, cotización o atención.\n\n${mainMenuReply(business)}`
+    };
+  }
+
+  if (customer.conversationState === "select_service") {
+    const service = findServiceFromContext({ business, customer, text });
+
+    if (service) {
+      return handleServiceSelection({ business, customer, service });
+    }
+
+    return {
+      intent: "select_service",
+      status: "auto_replied",
+      reply: [
+        "No encontré esa opción en la lista.",
+        "",
+        servicesReply(business)
+      ].join("\n")
     };
   }
 
@@ -1088,15 +1191,7 @@ async function buildStateReply({ business, customer, text }) {
   }
 
   if (includesAny(text, servicesKeywords)) {
-    await prisma.customer.update({
-      where: { id: customer.id },
-      data: { conversationState: "main_menu", lastIntent: "services" }
-    });
-    return {
-      intent: "services",
-      status: "auto_replied",
-      reply: servicesReply(business)
-    };
+    return startServiceSelection(customer, business);
   }
 
   const matchedFaq = business.faqs.find((faq) => normalize(text).includes(normalize(faq.question)));
