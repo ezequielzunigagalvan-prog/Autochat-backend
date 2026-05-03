@@ -23,7 +23,9 @@ const defaultAllowedOrigins = [
   "http://localhost:4000",
   "https://autochatmx.com",
   "https://www.autochatmx.com",
-  "https://panel.autochatmx.com"
+  "https://panel.autochatmx.com",
+  "https://hidrolub.com",
+  "https://www.hidrolub.com"
 ];
 
 function getAllowedOrigins() {
