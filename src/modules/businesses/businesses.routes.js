@@ -7,6 +7,9 @@ import { requireAuth, requireBusinessAccess } from "../auth/auth.middleware.js";
 export const businessRouter = Router();
 businessRouter.use(requireAuth);
 
+const contactFieldValues = ["name", "phone", "email", "company", "address"];
+const contactFieldsSchema = z.array(z.enum(contactFieldValues)).optional().default(["name", "phone"]);
+
 const businessSchema = z.object({
   name: z.string().min(2),
   niche: z.enum(["barberia", "estetica", "clinica_dental", "industrial", "servicios", "proyectos", "salud", "inmobiliaria", "educacion"]),
@@ -38,7 +41,8 @@ const businessSchema = z.object({
     name: z.string(),
     durationMinutes: z.coerce.number().int().positive(),
     bufferMinutes: z.coerce.number().int().nonnegative().optional(),
-    price: z.coerce.number().int().nonnegative().optional().default(0)
+    price: z.coerce.number().int().nonnegative().optional().default(0),
+    contactFields: contactFieldsSchema
   })).optional().default([])
 });
 
@@ -73,7 +77,8 @@ const businessUpdateSchema = z.object({
     name: z.string(),
     durationMinutes: z.coerce.number().int().positive(),
     bufferMinutes: z.coerce.number().int().nonnegative().optional(),
-    price: z.coerce.number().int().nonnegative().optional().default(0)
+    price: z.coerce.number().int().nonnegative().optional().default(0),
+    contactFields: contactFieldsSchema
   })).optional()
 });
 
@@ -88,6 +93,7 @@ const serviceSchema = z.object({
   durationMinutes: z.coerce.number().int().positive(),
   price: z.coerce.number().int().nonnegative().default(0),
   bufferMinutes: z.coerce.number().int().nonnegative().optional(),
+  contactFields: contactFieldsSchema,
   active: z.boolean().optional().default(true)
 });
 
@@ -125,8 +131,18 @@ function normalizeServices(services) {
     name: service.name,
     durationMinutes: service.durationMinutes,
     price: service.price ?? 0,
-    bufferMinutes: service.bufferMinutes ?? 10
+    bufferMinutes: service.bufferMinutes ?? 10,
+    contactFields: JSON.stringify(service.contactFields?.length ? service.contactFields : ["name", "phone"])
   }));
+}
+
+function normalizeServicePayload(service) {
+  return {
+    ...service,
+    contactFields: service.contactFields
+      ? JSON.stringify(service.contactFields.length ? service.contactFields : ["name", "phone"])
+      : undefined
+  };
 }
 
 businessRouter.get("/", async (req, res, next) => {
@@ -252,7 +268,7 @@ businessRouter.put("/:id", async (req, res, next) => {
           cancellationMinHours: parsed.cancellationMinHours,
           defaultBufferMinutes: parsed.defaultBufferMinutes,
           holdMinutes: parsed.holdMinutes,
-          services: parsed.services ? { create: parsed.services } : undefined,
+          services: parsed.services ? { create: normalizeServices(parsed.services) } : undefined,
           faqs: parsed.faqs ? { create: parsed.faqs } : undefined
         },
         include: includeBusinessRelations
@@ -331,7 +347,7 @@ businessRouter.post("/:id/services", async (req, res, next) => {
     if (!requireBusinessAccess(req, res, req.params.id)) return;
     const parsed = serviceSchema.parse(req.body);
     const service = await prisma.service.create({
-      data: { businessId: req.params.id, ...parsed }
+      data: { businessId: req.params.id, ...normalizeServicePayload(parsed) }
     });
     res.status(201).json(service);
   } catch (error) {
@@ -350,7 +366,7 @@ businessRouter.put("/:id/services/:serviceId", async (req, res, next) => {
 
     const service = await prisma.service.update({
       where: { id: existing.id },
-      data: parsed
+      data: normalizeServicePayload(parsed)
     });
     res.json(service);
   } catch (error) {

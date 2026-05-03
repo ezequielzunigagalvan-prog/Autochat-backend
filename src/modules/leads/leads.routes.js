@@ -8,9 +8,11 @@ export const leadsRouter = Router();
 
 const leadSchema = z.object({
   businessId: z.string().optional(),
-  name: z.string().min(2),
-  phone: z.string().min(7),
+  name: z.string().optional().default(""),
+  phone: z.string().optional().default(""),
   email: z.string().email().or(z.literal("")).optional().default(""),
+  company: z.string().optional().default(""),
+  address: z.string().optional().default(""),
   notes: z.string().optional().default(""),
   previousFrom: z.string().optional().default(""),
   source: z.string().optional().default("widget_web")
@@ -28,18 +30,26 @@ leadsRouter.post("/", async (req, res, next) => {
     const parsed = leadSchema.parse(req.body);
     const business = await loadBusiness(parsed.businessId);
     if (!business) return res.status(400).json({ error: "No business configured" });
+    const phoneKey = parsed.phone || parsed.email || parsed.previousFrom || `lead-${Date.now()}`;
+    const contactNotes = [
+      parsed.company ? `Empresa: ${parsed.company}` : "",
+      parsed.address ? `Dirección: ${parsed.address}` : "",
+      parsed.notes
+    ].filter(Boolean).join("\n");
 
     const customer = await prisma.customer.upsert({
       where: {
         businessId_phone: {
           businessId: business.id,
-          phone: parsed.phone
+          phone: phoneKey
         }
       },
       update: {
-        name: parsed.name,
+        name: parsed.name || parsed.company || "Cliente sin nombre",
         email: parsed.email,
-        notes: parsed.notes,
+        company: parsed.company,
+        contactAddress: parsed.address,
+        notes: contactNotes,
         conversationState: "idle",
         pendingServiceId: null,
         pendingStartsAt: null,
@@ -51,10 +61,12 @@ leadsRouter.post("/", async (req, res, next) => {
       },
       create: {
         businessId: business.id,
-        name: parsed.name,
-        phone: parsed.phone,
+        name: parsed.name || parsed.company || "Cliente sin nombre",
+        phone: phoneKey,
         email: parsed.email,
-        notes: parsed.notes,
+        company: parsed.company,
+        contactAddress: parsed.address,
+        notes: contactNotes,
         leadStatus: "nuevo",
         needsHuman: true,
         lastIntent: "lead_captured"
@@ -93,6 +105,8 @@ leadsRouter.post("/", async (req, res, next) => {
             notes: mergedNotes || customer.notes,
             leadStatus: previousCustomer.lastIntent === "quote_complete" ? "contactado" : customer.leadStatus,
             lastIntent: previousCustomer.lastIntent || customer.lastIntent,
+            company: customer.company || previousCustomer.company,
+            contactAddress: customer.contactAddress || previousCustomer.contactAddress,
             quoteService: customer.quoteService || previousCustomer.quoteService,
             quoteDetails: customer.quoteDetails || previousCustomer.quoteDetails,
             quoteLocation: customer.quoteLocation || previousCustomer.quoteLocation,

@@ -14,6 +14,15 @@ function defaultInitialMessage(business) {
   return `Hola. Soy el asistente de ${business.name}. Puedo ayudarte con información, servicios, horarios y solicitudes.`;
 }
 
+function parseContactFields(value) {
+  try {
+    const parsed = JSON.parse(value || "[]");
+    return Array.isArray(parsed) && parsed.length ? parsed : ["name", "phone"];
+  } catch {
+    return ["name", "phone"];
+  }
+}
+
 publicRouter.get("/businesses/:businessId/widget", async (req, res, next) => {
   try {
     const business = await prisma.business.findUnique({
@@ -25,7 +34,12 @@ publicRouter.get("/businesses/:businessId/widget", async (req, res, next) => {
         widgetTitle: true,
         widgetIntro: true,
         widgetInitialMessage: true,
-        widgetPrompt: true
+        widgetPrompt: true,
+        services: {
+          where: { active: true },
+          orderBy: { createdAt: "asc" },
+          select: { id: true, name: true, contactFields: true }
+        }
       }
     });
 
@@ -35,7 +49,12 @@ publicRouter.get("/businesses/:businessId/widget", async (req, res, next) => {
       title: business.widgetTitle || "Asistente",
       intro: business.widgetIntro || "Deja tus datos para responderte y dar seguimiento a tu solicitud.",
       hello: business.widgetInitialMessage || defaultInitialMessage(business),
-      prompt: business.widgetPrompt || "Quiero información sobre sus servicios"
+      prompt: business.widgetPrompt || "Quiero información sobre sus servicios",
+      services: business.services.map((service) => ({
+        id: service.id,
+        name: service.name,
+        contactFields: parseContactFields(service.contactFields)
+      }))
     });
   } catch (error) {
     next(error);

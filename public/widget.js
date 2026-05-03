@@ -29,6 +29,7 @@
   };
 
   const defaults = { ...(widgetDefaults[businessId] || widgetDefaults.demo_proyectos) };
+  defaults.services = defaults.services || [];
   if (businessId && !widgetDefaults[businessId]) {
     try {
       const response = await fetch(`${apiUrl}/api/public/businesses/${businessId}/widget`);
@@ -38,6 +39,7 @@
         defaults.intro = config.intro || defaults.intro;
         defaults.hello = config.hello || defaults.hello;
         defaults.prompt = config.prompt || defaults.prompt;
+        defaults.services = Array.isArray(config.services) ? config.services : [];
       }
     } catch {
       // Keep local defaults if the public config cannot be loaded.
@@ -59,6 +61,53 @@
       .replace(/"/g, "&quot;")
       .replace(/'/g, "&#039;");
   }
+
+  function normalizeText(value = "") {
+    return String(value)
+      .toLowerCase()
+      .normalize("NFD")
+      .replace(/[\u0300-\u036f]/g, "");
+  }
+
+  function parseContactFields(value) {
+    if (Array.isArray(value)) return value.length ? value : ["name", "phone"];
+    if (typeof value === "string") {
+      try {
+        const parsed = JSON.parse(value);
+        return Array.isArray(parsed) && parsed.length ? parsed : ["name", "phone"];
+      } catch {
+        return ["name", "phone"];
+      }
+    }
+    return ["name", "phone"];
+  }
+
+  let selectedServiceName = "";
+
+  function updateSelectedService(text = "") {
+    const explicit = String(text).match(/Servicio:\s*([^\n]+)/i) || String(text).match(/Has seleccionado:\s*([^\n]+)/i);
+    if (explicit?.[1]) {
+      selectedServiceName = explicit[1].trim();
+      return;
+    }
+    const normalized = normalizeText(text);
+    const match = defaults.services.find((service) => normalized.includes(normalizeText(service.name)));
+    if (match) selectedServiceName = match.name;
+  }
+
+  function contactFieldsForSelectedService() {
+    if (!selectedServiceName) return ["name", "phone", "email"];
+    const service = defaults.services.find((item) => normalizeText(item.name) === normalizeText(selectedServiceName));
+    return parseContactFields(service?.contactFields);
+  }
+
+  const fieldMeta = {
+    name: { id: "ac-name", placeholder: "Nombre", type: "text" },
+    phone: { id: "ac-phone", placeholder: "Teléfono / WhatsApp", type: "tel" },
+    email: { id: "ac-email", placeholder: "Correo", type: "email" },
+    company: { id: "ac-company", placeholder: "Empresa", type: "text" },
+    address: { id: "ac-address", placeholder: "Dirección / ubicación", type: "text" }
+  };
 
   function quickRepliesFor(text) {
     const normalized = String(text || "").toLowerCase();
@@ -181,11 +230,13 @@
     const contactForm = document.createElement("form");
     contactForm.id = "ac-contact-form";
     contactForm.className = "ac-contact-form";
+    const fields = contactFieldsForSelectedService();
     contactForm.innerHTML = `
       <strong>Datos de contacto</strong>
-      <input id="ac-name" placeholder="Nombre" required />
-      <input id="ac-phone" placeholder="Teléfono / WhatsApp" required />
-      <input id="ac-email" placeholder="Correo opcional" type="email" />
+      ${fields.map((field) => {
+        const meta = fieldMeta[field] || { id: `ac-${field}`, placeholder: field, type: "text" };
+        return `<input id="${meta.id}" data-field="${field}" placeholder="${escapeHtml(meta.placeholder)}" type="${meta.type}" required />`;
+      }).join("")}
       <button type="submit">Enviar datos</button>
       <small id="ac-lead-error"></small>
     `;
@@ -195,9 +246,15 @@
       event.preventDefault();
       const errorEl = contactForm.querySelector("#ac-lead-error");
       errorEl.textContent = "";
-      const name = contactForm.querySelector("#ac-name").value.trim();
-      const phone = contactForm.querySelector("#ac-phone").value.trim();
-      const email = contactForm.querySelector("#ac-email").value.trim();
+      const leadData = {};
+      contactForm.querySelectorAll("[data-field]").forEach((field) => {
+        leadData[field.dataset.field] = field.value.trim();
+      });
+      const name = leadData.name || "";
+      const phone = leadData.phone || "";
+      const email = leadData.email || "";
+      const company = leadData.company || "";
+      const address = leadData.address || "";
       try {
         const response = await fetch(`${apiUrl}/api/leads`, {
           method: "POST",
@@ -207,6 +264,8 @@
             name,
             phone,
             email,
+            company,
+            address,
             previousFrom: from,
             source: "widget_web",
             notes: "Lead capturado al final del chat"
@@ -274,6 +333,7 @@
       });
       const body = await response.json();
       addMessage(body.outboundText || "No pude responder en este momento.", "bot");
+      updateSelectedService(body.outboundText || "");
       if (shouldAskContact(body)) addContactForm();
     } catch {
       addMessage("No pude conectar con el asistente. Intenta de nuevo en un momento.", "bot");

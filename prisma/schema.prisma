@@ -88,6 +88,7 @@ model Service {
   durationMinutes Int
   price           Int           @default(0)
   bufferMinutes   Int?
+  contactFields   String        @default("[\"name\",\"phone\"]")
   active          Boolean       @default(true)
   createdAt       DateTime      @default(now())
   updatedAt       DateTime      @updatedAt
@@ -149,6 +150,8 @@ model Customer {
   name          String
   phone         String
   email         String         @default("")
+  company       String         @default("")
+  contactAddress String        @default("")
   notes         String         @default("")
   conversationState String     @default("idle")
   botPaused     Boolean        @default(false)
