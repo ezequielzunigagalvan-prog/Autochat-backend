@@ -83,6 +83,7 @@
   }
 
   let selectedServiceName = "";
+  let selectedContactFields = [];
 
   function updateSelectedService(text = "") {
     const explicit = String(text).match(/Servicio:\s*([^\n]+)/i) || String(text).match(/Has seleccionado:\s*([^\n]+)/i);
@@ -95,7 +96,17 @@
     if (match) selectedServiceName = match.name;
   }
 
+  function updateContactConfig(conversation = {}) {
+    if (Array.isArray(conversation.contactFields) && conversation.contactFields.length) {
+      selectedContactFields = conversation.contactFields;
+    }
+    if (conversation.serviceName) {
+      selectedServiceName = conversation.serviceName;
+    }
+  }
+
   function contactFieldsForSelectedService() {
+    if (selectedContactFields.length) return selectedContactFields;
     if (!selectedServiceName) return ["name", "phone", "email"];
     const service = defaults.services.find((item) => normalizeText(item.name) === normalizeText(selectedServiceName));
     return parseContactFields(service?.contactFields);
@@ -106,7 +117,13 @@
     phone: { id: "ac-phone", placeholder: "Teléfono / WhatsApp", type: "tel" },
     email: { id: "ac-email", placeholder: "Correo", type: "email" },
     company: { id: "ac-company", placeholder: "Empresa", type: "text" },
-    address: { id: "ac-address", placeholder: "Dirección / ubicación", type: "text" }
+    position: { id: "ac-position", placeholder: "Puesto / cargo", type: "text" },
+    address: { id: "ac-address", placeholder: "Dirección / ubicación", type: "text" },
+    city: { id: "ac-city", placeholder: "Ciudad / zona", type: "text" },
+    equipment: { id: "ac-equipment", placeholder: "Equipo / sistema", type: "text" },
+    details: { id: "ac-details", placeholder: "Detalles adicionales", type: "text" },
+    urgency: { id: "ac-urgency", placeholder: "Urgencia", type: "text" },
+    preferredTime: { id: "ac-preferred-time", placeholder: "Horario preferido", type: "text" }
   };
 
   function quickRepliesFor(text) {
@@ -254,7 +271,13 @@
       const phone = leadData.phone || "";
       const email = leadData.email || "";
       const company = leadData.company || "";
+      const position = leadData.position || "";
       const address = leadData.address || "";
+      const city = leadData.city || "";
+      const equipment = leadData.equipment || "";
+      const details = leadData.details || "";
+      const urgency = leadData.urgency || "";
+      const preferredTime = leadData.preferredTime || "";
       try {
         const response = await fetch(`${apiUrl}/api/leads`, {
           method: "POST",
@@ -265,7 +288,13 @@
             phone,
             email,
             company,
+            position,
             address,
+            city,
+            equipment,
+            details,
+            urgency,
+            preferredTime,
             previousFrom: from,
             source: "widget_web",
             notes: "Lead capturado al final del chat"
@@ -333,6 +362,7 @@
       });
       const body = await response.json();
       addMessage(body.outboundText || "No pude responder en este momento.", "bot");
+      updateContactConfig(body);
       updateSelectedService(body.outboundText || "");
       if (shouldAskContact(body)) addContactForm();
     } catch {

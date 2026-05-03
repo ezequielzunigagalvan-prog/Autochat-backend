@@ -12,7 +12,13 @@ const leadSchema = z.object({
   phone: z.string().optional().default(""),
   email: z.string().email().or(z.literal("")).optional().default(""),
   company: z.string().optional().default(""),
+  position: z.string().optional().default(""),
   address: z.string().optional().default(""),
+  city: z.string().optional().default(""),
+  equipment: z.string().optional().default(""),
+  details: z.string().optional().default(""),
+  urgency: z.string().optional().default(""),
+  preferredTime: z.string().optional().default(""),
   notes: z.string().optional().default(""),
   previousFrom: z.string().optional().default(""),
   source: z.string().optional().default("widget_web")
@@ -33,7 +39,13 @@ leadsRouter.post("/", async (req, res, next) => {
     const phoneKey = parsed.phone || parsed.email || parsed.previousFrom || `lead-${Date.now()}`;
     const contactNotes = [
       parsed.company ? `Empresa: ${parsed.company}` : "",
+      parsed.position ? `Puesto: ${parsed.position}` : "",
       parsed.address ? `Dirección: ${parsed.address}` : "",
+      parsed.city ? `Ciudad / zona: ${parsed.city}` : "",
+      parsed.equipment ? `Equipo / sistema: ${parsed.equipment}` : "",
+      parsed.details ? `Detalles adicionales: ${parsed.details}` : "",
+      parsed.urgency ? `Urgencia: ${parsed.urgency}` : "",
+      parsed.preferredTime ? `Horario preferido: ${parsed.preferredTime}` : "",
       parsed.notes
     ].filter(Boolean).join("\n");
 

@@ -7,7 +7,19 @@ import { requireAuth, requireBusinessAccess } from "../auth/auth.middleware.js";
 export const businessRouter = Router();
 businessRouter.use(requireAuth);
 
-const contactFieldValues = ["name", "phone", "email", "company", "address"];
+const contactFieldValues = [
+  "name",
+  "phone",
+  "email",
+  "company",
+  "position",
+  "address",
+  "city",
+  "equipment",
+  "details",
+  "urgency",
+  "preferredTime"
+];
 const contactFieldsSchema = z.array(z.enum(contactFieldValues)).optional().default(["name", "phone"]);
 
 const businessSchema = z.object({

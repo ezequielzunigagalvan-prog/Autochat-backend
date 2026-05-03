@@ -225,6 +225,45 @@ function quoteSummary(data) {
   ].join("\n");
 }
 
+function parseContactFields(value) {
+  try {
+    const parsed = JSON.parse(value || "[]");
+    return Array.isArray(parsed) && parsed.length ? parsed : ["name", "phone"];
+  } catch {
+    return ["name", "phone"];
+  }
+}
+
+function contactFieldsForCustomer(customer, business) {
+  let service = null;
+
+  if (customer?.pendingServiceId) {
+    service = business.services.find((item) => item.id === customer.pendingServiceId);
+  }
+
+  if (!service && customer?.quoteService) {
+    service = business.services.find((item) => normalize(item.name) === normalize(customer.quoteService));
+  }
+
+  if (!service && customer?.pendingData) {
+    try {
+      const pendingData = JSON.parse(customer.pendingData);
+      if (pendingData?.service) {
+        service = business.services.find((item) => normalize(item.name) === normalize(pendingData.service));
+      }
+    } catch {
+      service = null;
+    }
+  }
+
+  if (!service) return { serviceName: "", contactFields: ["name", "phone", "email"] };
+
+  return {
+    serviceName: service.name,
+    contactFields: parseContactFields(service.contactFields)
+  };
+}
+
 async function startMainMenu(customer, business) {
   await prisma.customer.update({
     where: { id: customer.id },
@@ -1284,7 +1323,7 @@ export async function answerMessage({ businessId, from, text, channel = "web_or_
     }
   }
 
-  return prisma.conversation.create({
+  const conversation = await prisma.conversation.create({
     data: {
       businessId: business.id,
       customerId: customer.id,
@@ -1295,4 +1334,13 @@ export async function answerMessage({ businessId, from, text, channel = "web_or_
       status: fallback.status
     }
   });
+
+  const latestCustomer = await prisma.customer.findUnique({ where: { id: customer.id } });
+  const contactConfig = contactFieldsForCustomer(latestCustomer, business);
+
+  return {
+    ...conversation,
+    serviceName: contactConfig.serviceName,
+    contactFields: contactConfig.contactFields
+  };
 }
