@@ -69,6 +69,10 @@ const businessSchema = z.object({
   faqs: z.array(z.object({ question: z.string(), answer: z.string() })).optional().default([]),
   services: z.array(z.object({
     name: z.string(),
+    description: z.string().optional().default(""),
+    connectorEnabled: z.boolean().optional().default(true),
+    connectorQuestion: z.string().optional().default("¿Quieres que prepare una solicitud de cotización para este servicio?"),
+    connectorCta: z.string().optional().default("Solicitar cotización"),
     durationMinutes: z.coerce.number().int().positive(),
     bufferMinutes: z.coerce.number().int().nonnegative().optional(),
     price: z.coerce.number().int().nonnegative().optional().default(0),
@@ -117,6 +121,10 @@ const businessUpdateSchema = z.object({
   faqs: z.array(z.object({ question: z.string(), answer: z.string() })).optional(),
   services: z.array(z.object({
     name: z.string(),
+    description: z.string().optional().default(""),
+    connectorEnabled: z.boolean().optional().default(true),
+    connectorQuestion: z.string().optional().default("¿Quieres que prepare una solicitud de cotización para este servicio?"),
+    connectorCta: z.string().optional().default("Solicitar cotización"),
     durationMinutes: z.coerce.number().int().positive(),
     bufferMinutes: z.coerce.number().int().nonnegative().optional(),
     price: z.coerce.number().int().nonnegative().optional().default(0),
@@ -132,6 +140,10 @@ const staffSchema = z.object({
 
 const serviceSchema = z.object({
   name: z.string().min(2),
+  description: z.string().optional().default(""),
+  connectorEnabled: z.boolean().optional().default(true),
+  connectorQuestion: z.string().optional().default("¿Quieres que prepare una solicitud de cotización para este servicio?"),
+  connectorCta: z.string().optional().default("Solicitar cotización"),
   durationMinutes: z.coerce.number().int().positive(),
   price: z.coerce.number().int().nonnegative().default(0),
   bufferMinutes: z.coerce.number().int().nonnegative().optional(),
@@ -171,6 +183,10 @@ const includeBusinessRelations = {
 function normalizeServices(services) {
   return services.map((service) => ({
     name: service.name,
+    description: service.description || "",
+    connectorEnabled: service.connectorEnabled ?? true,
+    connectorQuestion: service.connectorQuestion || "¿Quieres que prepare una solicitud de cotización para este servicio?",
+    connectorCta: service.connectorCta || "Solicitar cotización",
     durationMinutes: service.durationMinutes,
     price: service.price ?? 0,
     bufferMinutes: service.bufferMinutes ?? 10,
@@ -181,6 +197,10 @@ function normalizeServices(services) {
 function normalizeServicePayload(service) {
   return {
     ...service,
+    description: service.description,
+    connectorEnabled: service.connectorEnabled,
+    connectorQuestion: service.connectorQuestion,
+    connectorCta: service.connectorCta,
     contactFields: service.contactFields
       ? JSON.stringify(service.contactFields.length ? service.contactFields : ["name", "phone"])
       : undefined

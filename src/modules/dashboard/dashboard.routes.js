@@ -50,7 +50,7 @@ dashboardRouter.get("/", async (req, res, next) => {
       prisma.customer.findMany({
         where: { businessId: { in: businessIds } },
         include: {
-          business: { select: { id: true, name: true, niche: true } },
+          business: { select: { id: true, clientNumber: true, name: true, niche: true } },
           conversations: { orderBy: { createdAt: "desc" }, take: 1 }
         },
         orderBy: { updatedAt: "desc" },
@@ -69,6 +69,7 @@ dashboardRouter.get("/", async (req, res, next) => {
       },
       clients: businesses.map((business) => ({
         id: business.id,
+        clientNumber: business.clientNumber,
         name: business.name,
         niche: business.niche,
         phone: business.phone,

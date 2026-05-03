@@ -54,9 +54,33 @@ export const businessTemplates = {
   industrial: {
     automationType: "quote",
     services: [
-      { name: "Filtración de aceite", durationMinutes: 60, price: 0 },
-      { name: "Análisis de aceite", durationMinutes: 30, price: 0 },
-      { name: "Asesoría en lubricación", durationMinutes: 60, price: 0 }
+      {
+        name: "Filtración de aceite",
+        description: "Servicio para remover partículas, humedad y contaminantes del aceite en equipos industriales. La cotización depende del tipo de aceite, volumen, condición del fluido y ubicación.",
+        connectorQuestion: "¿Quieres que prepare una solicitud de cotización para filtración de aceite?",
+        connectorCta: "Cotizar filtración",
+        durationMinutes: 60,
+        price: 0,
+        contactFields: ["name", "phone", "company", "city", "equipment", "details", "urgency"]
+      },
+      {
+        name: "Análisis de aceite",
+        description: "Revisión del estado del lubricante para identificar contaminación, desgaste o condiciones que puedan afectar el equipo.",
+        connectorQuestion: "¿Quieres solicitar seguimiento para un análisis de aceite?",
+        connectorCta: "Solicitar análisis",
+        durationMinutes: 30,
+        price: 0,
+        contactFields: ["name", "phone", "company", "equipment", "details"]
+      },
+      {
+        name: "Asesoría en lubricación",
+        description: "Orientación técnica para seleccionar lubricantes, mejorar rutinas de mantenimiento y reducir fallas asociadas a lubricación.",
+        connectorQuestion: "¿Quieres que el equipo revise tu caso de lubricación?",
+        connectorCta: "Pedir asesoría",
+        durationMinutes: 60,
+        price: 0,
+        contactFields: ["name", "phone", "company", "position", "city", "details"]
+      }
     ],
     faqs: [
       { question: "servicios", answer: "Filtración, análisis y soluciones de lubricación industrial." },

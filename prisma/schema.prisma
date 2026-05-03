@@ -9,6 +9,7 @@ datasource db {
 
 model Business {
   id           String         @id @default(cuid())
+  clientNumber Int           @unique @default(autoincrement())
   name         String
   niche        String
   automationType String      @default("appointment")
@@ -97,6 +98,10 @@ model Service {
   id              String        @id @default(cuid())
   businessId      String
   name            String
+  description     String        @default("")
+  connectorEnabled Boolean      @default(true)
+  connectorQuestion String      @default("¿Quieres que prepare una solicitud de cotización para este servicio?")
+  connectorCta    String        @default("Solicitar cotización")
   durationMinutes Int
   price           Int           @default(0)
   bufferMinutes   Int?

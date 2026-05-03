@@ -25,6 +25,8 @@ const quoteKeywords = ["cotizar", "cotizacion", "cotización", "precio", "presup
 const strongQuoteKeywords = ["cotizar", "cotizacion", "cotización", "precio", "presupuesto", "propuesta"];
 const servicesKeywords = ["servicio", "servicios", "opciones", "catalogo", "catálogo", "que hacen", "qué hacen"];
 const greetingKeywords = ["hola", "buenas", "buen dia", "buen día", "buenos dias", "buenos días", "info", "informes", "ayuda"];
+const yesKeywords = ["si", "sí", "claro", "ok", "cotizar", "cotizacion", "cotización", "solicitar", "adelante", "me interesa"];
+const noKeywords = ["no", "despues", "después", "otro", "ver otro", "regresar", "servicios"];
 
 function normalize(value) {
   return (value || "")
@@ -102,6 +104,30 @@ function serviceOptionsContext(business) {
   };
 }
 
+function serviceConnectorReply(service) {
+  return [
+    "Perfecto. Has seleccionado:",
+    "",
+    service.name,
+    service.description ? `\n${service.description}` : "",
+    "",
+    service.connectorQuestion || "¿Quieres que prepare una solicitud de cotización para este servicio?",
+    "",
+    `1. ${service.connectorCta || "Solicitar cotización"}`,
+    "2. Ver otro servicio"
+  ].filter(Boolean).join("\n");
+}
+
+function wantsConnectorQuote(text) {
+  const normalized = normalize(text);
+  return /^(1|uno|opcion 1|opcion uno)\b/.test(normalized) || yesKeywords.some((keyword) => normalized.includes(normalize(keyword)));
+}
+
+function wantsAnotherService(text) {
+  const normalized = normalize(text);
+  return /^(2|dos|opcion 2|opcion dos)\b/.test(normalized) || noKeywords.some((keyword) => normalized.includes(normalize(keyword)));
+}
+
 function findServiceFromContext({ business, customer, text }) {
   const pending = parsePendingData(customer);
   const options = Array.isArray(pending.options) ? pending.options : [];
@@ -145,7 +171,25 @@ async function startServiceSelection(customer, business) {
 
 async function handleServiceSelection({ business, customer, service }) {
   if (isQuoteBasedBusiness(business)) {
-    const data = { service: service.name };
+    const data = { service: service.name, serviceId: service.id };
+
+    if (service.connectorEnabled !== false) {
+      await prisma.customer.update({
+        where: { id: customer.id },
+        data: {
+          conversationState: "service_connector",
+          pendingData: JSON.stringify(data),
+          lastIntent: "service_connector"
+        }
+      });
+
+      return {
+        intent: "service_connector",
+        status: "auto_replied",
+        reply: serviceConnectorReply(service)
+      };
+    }
+
     await prisma.customer.update({
       where: { id: customer.id },
       data: {
@@ -1093,6 +1137,46 @@ async function buildStateReply({ business, customer, text }) {
     };
   }
 
+  if (customer.conversationState === "service_connector") {
+    const data = parsePendingData(customer);
+    const service = business.services.find((item) => item.id === data.serviceId || normalize(item.name) === normalize(data.service));
+
+    if (wantsAnotherService(text)) {
+      return startServiceSelection(customer, business);
+    }
+
+    if (wantsConnectorQuote(text) || includesAny(text, strongQuoteKeywords)) {
+      await prisma.customer.update({
+        where: { id: customer.id },
+        data: {
+          conversationState: "quote_details",
+          pendingServiceId: service?.id || null,
+          pendingData: JSON.stringify({
+            ...data,
+            service: service?.name || data.service || ""
+          }),
+          lastIntent: "quote_service_selected"
+        }
+      });
+
+      return {
+        intent: "quote_details",
+        status: "auto_replied",
+        reply: quoteDetailQuestion(business, "quote_details")
+      };
+    }
+
+    return {
+      intent: "service_connector",
+      status: "auto_replied",
+      reply: [
+        "¿Quieres avanzar con una cotización o prefieres ver otro servicio?",
+        "",
+        service ? serviceConnectorReply(service) : servicesReply(business)
+      ].join("\n")
+    };
+  }
+
   if (["quote_service", "quote_details", "quote_location", "quote_urgency"].includes(customer.conversationState)) {
     const data = parsePendingData(customer);
 
@@ -1106,7 +1190,11 @@ async function buildStateReply({ business, customer, text }) {
         };
       }
 
-      data.service = service?.name || text.trim();
+      if (service) {
+        return handleServiceSelection({ business, customer, service });
+      }
+
+      data.service = text.trim();
       await prisma.customer.update({
         where: { id: customer.id },
         data: { conversationState: "quote_details", pendingData: JSON.stringify(data) }

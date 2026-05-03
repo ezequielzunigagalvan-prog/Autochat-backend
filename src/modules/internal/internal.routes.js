@@ -31,7 +31,7 @@ internalRouter.get("/overview", async (_req, res, next) => {
           orderBy: [{ needsHuman: "desc" }, { updatedAt: "desc" }],
           take: 12,
           include: {
-            business: { select: { id: true, name: true, niche: true } },
+            business: { select: { id: true, clientNumber: true, name: true, niche: true } },
             conversations: { orderBy: { createdAt: "desc" }, take: 1 }
           }
         })
@@ -50,6 +50,7 @@ internalRouter.get("/overview", async (_req, res, next) => {
       },
       recentBusinesses: recentBusinesses.map((business) => ({
         id: business.id,
+        clientNumber: business.clientNumber,
         name: business.name,
         niche: business.niche,
         automationType: business.automationType,

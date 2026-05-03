@@ -59,7 +59,15 @@ publicRouter.get("/businesses/:businessId/widget", async (req, res, next) => {
         services: {
           where: { active: true },
           orderBy: { createdAt: "asc" },
-          select: { id: true, name: true, contactFields: true }
+          select: {
+            id: true,
+            name: true,
+            description: true,
+            connectorEnabled: true,
+            connectorQuestion: true,
+            connectorCta: true,
+            contactFields: true
+          }
         }
       }
     });
@@ -86,6 +94,10 @@ publicRouter.get("/businesses/:businessId/widget", async (req, res, next) => {
       services: business.services.map((service) => ({
         id: service.id,
         name: service.name,
+        description: service.description || "",
+        connectorEnabled: service.connectorEnabled,
+        connectorQuestion: service.connectorQuestion || "¿Quieres que prepare una solicitud de cotización para este servicio?",
+        connectorCta: service.connectorCta || "Solicitar cotización",
         contactFields: parseContactFields(service.contactFields)
       }))
     });
