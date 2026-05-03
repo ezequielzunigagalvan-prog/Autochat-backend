@@ -1,4 +1,4 @@
-﻿import express from "express";
+import express from "express";
 import cors from "cors";
 import { businessRouter } from "./modules/businesses/businesses.routes.js";
 import { appointmentRouter } from "./modules/appointments/appointments.routes.js";
@@ -24,7 +24,15 @@ export function createApp() {
   app.use(cors({ origin: true }));
   app.use(express.urlencoded({ extended: false }));
   app.use(express.json({ limit: "1mb" }));
-  app.use("/public", express.static("public"));
+  app.use("/public", express.static("public", {
+    etag: false,
+    maxAge: 0,
+    setHeaders(res, path) {
+      if (path.endsWith("widget.js")) {
+        res.setHeader("Cache-Control", "no-store, no-cache, must-revalidate, proxy-revalidate");
+      }
+    }
+  }));
   app.use(express.static("public"));
 
   app.get("/health", (_req, res) => {

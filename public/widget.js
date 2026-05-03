@@ -109,7 +109,11 @@
     if (selectedContactFields.length) return selectedContactFields;
     if (!selectedServiceName) return ["name", "phone", "email"];
     const service = defaults.services.find((item) => normalizeText(item.name) === normalizeText(selectedServiceName));
-    return parseContactFields(service?.contactFields);
+    const fields = parseContactFields(service?.contactFields);
+    const quoteMode = /cotiza|cotización|cotizacion|filtr|industrial|proyecto|renta|curso/i.test(`${defaults.prompt} ${defaults.hello}`);
+    return quoteMode && fields.length <= 2
+      ? ["name", "phone", "email", "company", "city", "equipment", "urgency"]
+      : fields;
   }
 
   const fieldMeta = {

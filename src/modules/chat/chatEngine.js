@@ -236,6 +236,7 @@ function parseContactFields(value) {
 
 function contactFieldsForCustomer(customer, business) {
   let service = null;
+  const quoteDefaultFields = ["name", "phone", "email", "company", "city", "equipment", "urgency"];
 
   if (customer?.pendingServiceId) {
     service = business.services.find((item) => item.id === customer.pendingServiceId);
@@ -256,11 +257,20 @@ function contactFieldsForCustomer(customer, business) {
     }
   }
 
-  if (!service) return { serviceName: "", contactFields: ["name", "phone", "email"] };
+  if (!service) {
+    return {
+      serviceName: "",
+      contactFields: isQuoteBasedBusiness(business) ? quoteDefaultFields : ["name", "phone", "email"]
+    };
+  }
+
+  const serviceFields = parseContactFields(service.contactFields);
 
   return {
     serviceName: service.name,
-    contactFields: parseContactFields(service.contactFields)
+    contactFields: isQuoteBasedBusiness(business) && serviceFields.length <= 2
+      ? quoteDefaultFields
+      : serviceFields
   };
 }
 
