@@ -174,20 +174,34 @@
     <style>
       #autochat-widget-root{position:fixed;right:18px;bottom:18px;z-index:99999;font-family:Inter,system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;color:#1d2421}
       #autochat-widget-root *{box-sizing:border-box}
-      #ac-toggle{min-width:76px;height:58px;border:0;border-radius:999px;background:#1f5c50;color:#fff;font-weight:900;box-shadow:0 16px 34px rgba(15,35,29,.26);cursor:pointer;padding:0 18px}
-      #ac-panel{display:none;width:380px;max-width:calc(100vw - 28px);height:590px;max-height:calc(100vh - 34px);background:#f7f8f6;border:1px solid #d9e1db;border-radius:22px;box-shadow:0 22px 60px rgba(17,29,24,.24);overflow:hidden}
-      .ac-header{min-height:86px;background:#1f5c50;color:#fff;padding:16px;display:grid;grid-template-columns:42px 1fr 34px;gap:12px;align-items:center}
-      .ac-avatar{width:42px;height:42px;border-radius:999px;background:#eef7f0;color:#1f5c50;display:grid;place-items:center;font-weight:900;border:1px solid rgba(255,255,255,.42)}
+      @keyframes ac-pop{from{opacity:0;transform:translateY(16px) scale(.96)}to{opacity:1;transform:translateY(0) scale(1)}}
+      @keyframes ac-float{0%,100%{transform:translateY(0)}50%{transform:translateY(-3px)}}
+      @keyframes ac-pulse{0%{box-shadow:0 0 0 0 rgba(31,92,80,.28),0 18px 38px rgba(15,35,29,.28)}70%{box-shadow:0 0 0 13px rgba(31,92,80,0),0 18px 38px rgba(15,35,29,.28)}100%{box-shadow:0 0 0 0 rgba(31,92,80,0),0 18px 38px rgba(15,35,29,.28)}}
+      @keyframes ac-message{from{opacity:0;transform:translateY(10px) scale(.98)}to{opacity:1;transform:translateY(0) scale(1)}}
+      @keyframes ac-shimmer{from{transform:translateX(-120%)}to{transform:translateX(120%)}}
+      @keyframes ac-dot{0%,80%,100%{opacity:.35;transform:translateY(0)}40%{opacity:1;transform:translateY(-4px)}}
+      #ac-toggle{min-width:82px;height:60px;border:0;border-radius:999px;background:linear-gradient(135deg,#1f5c50,#2f7a68);color:#fff;font-weight:900;box-shadow:0 18px 38px rgba(15,35,29,.28);cursor:pointer;padding:0 20px;animation:ac-float 4s ease-in-out infinite,ac-pulse 3s ease-out infinite;transition:transform .18s ease,filter .18s ease}
+      #ac-toggle:hover{transform:translateY(-2px) scale(1.03);filter:saturate(1.08)}
+      #ac-panel{display:none;width:390px;max-width:calc(100vw - 28px);height:600px;max-height:calc(100vh - 34px);background:#f7f8f6;border:1px solid rgba(217,225,219,.92);border-radius:24px;box-shadow:0 28px 80px rgba(17,29,24,.28);overflow:hidden;transform-origin:100% 100%;backdrop-filter:blur(10px)}
+      #ac-panel.ac-open{animation:ac-pop .28s cubic-bezier(.2,.8,.2,1)}
+      .ac-header{min-height:92px;background:linear-gradient(135deg,#205d51,#316f61);color:#fff;padding:17px;display:grid;grid-template-columns:46px 1fr 36px;gap:13px;align-items:center;position:relative;overflow:hidden}
+      .ac-header:after{content:"";position:absolute;inset:0;background:linear-gradient(110deg,transparent 15%,rgba(255,255,255,.16) 42%,transparent 66%);animation:ac-shimmer 5.2s ease-in-out infinite;pointer-events:none}
+      .ac-avatar{width:46px;height:46px;border-radius:999px;background:#eef7f0;color:#1f5c50;display:grid;place-items:center;font-weight:900;border:1px solid rgba(255,255,255,.52);box-shadow:0 10px 24px rgba(0,0,0,.12);position:relative;z-index:1}
       .ac-title{display:grid;gap:2px;min-width:0}.ac-title strong{font-size:18px;line-height:1.1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.ac-title span{font-size:13px;opacity:.86;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-      #ac-close{width:34px;height:34px;border:0;border-radius:999px;background:rgba(255,255,255,.14);color:#fff;font-size:18px;cursor:pointer}
+      .ac-title,#ac-close{position:relative;z-index:1}
+      #ac-close{width:36px;height:36px;border:0;border-radius:999px;background:rgba(255,255,255,.16);color:#fff;font-size:18px;cursor:pointer;transition:background .18s ease,transform .18s ease}
+      #ac-close:hover{background:rgba(255,255,255,.26);transform:rotate(8deg)}
       #ac-chat{height:504px;display:grid;grid-template-rows:minmax(0,1fr) auto}
       #ac-messages{min-height:0;overflow:auto;padding:18px 14px;display:grid;gap:10px;align-content:start;background:linear-gradient(#fff,#f7f8f6)}
-      .ac-bubble{display:grid;gap:5px;max-width:90%}.ac-bubble span{font-size:12px;color:#708078}.ac-bubble div{padding:11px 13px;border-radius:18px;white-space:pre-line;line-height:1.38;box-shadow:0 1px 0 rgba(0,0,0,.03)}
-      .ac-bubble.bot{justify-self:start}.ac-bubble.bot div{background:#fff;border:1px solid #e3e8e4;border-top-left-radius:7px}.ac-bubble.me{justify-self:end}.ac-bubble.me div{background:#e6f3eb;color:#143d30;border-top-right-radius:7px}
-      .ac-options{display:flex;flex-wrap:wrap;gap:8px;margin-top:2px}.ac-options button{border:1px solid #cbd5cf;background:#fff;color:#3f4b45;border-radius:999px;min-height:36px;padding:0 12px;cursor:pointer}.ac-options button:hover{border-color:#1f5c50;color:#1f5c50}
+      .ac-bubble{display:grid;gap:5px;max-width:90%;animation:ac-message .24s ease both}.ac-bubble span{font-size:12px;color:#708078}.ac-bubble div{padding:12px 14px;border-radius:18px;white-space:pre-line;line-height:1.4;box-shadow:0 8px 22px rgba(17,29,24,.07)}
+      .ac-bubble.bot{justify-self:start}.ac-bubble.bot div{background:#fff;border:1px solid #e3e8e4;border-top-left-radius:7px}.ac-bubble.me{justify-self:end}.ac-bubble.me div{background:linear-gradient(135deg,#e6f3eb,#d8eadf);color:#143d30;border-top-right-radius:7px}
+      .ac-typing div{display:flex;gap:5px;align-items:center;min-width:56px}.ac-typing i{width:7px;height:7px;border-radius:999px;background:#7b8b83;display:block;animation:ac-dot 1.1s infinite}.ac-typing i:nth-child(2){animation-delay:.14s}.ac-typing i:nth-child(3){animation-delay:.28s}
+      .ac-options{display:flex;flex-wrap:wrap;gap:8px;margin-top:2px;animation:ac-message .28s ease both}.ac-options button{border:1px solid #cbd5cf;background:rgba(255,255,255,.92);color:#3f4b45;border-radius:999px;min-height:36px;padding:0 12px;cursor:pointer;transition:transform .16s ease,border-color .16s ease,color .16s ease,box-shadow .16s ease}.ac-options button:hover{border-color:#1f5c50;color:#1f5c50;transform:translateY(-1px);box-shadow:0 8px 18px rgba(31,92,80,.12)}
       #ac-form,.ac-contact-form{display:grid;grid-template-columns:1fr 48px;gap:8px;padding:12px;border-top:1px solid #e0e6e1;background:#fff}
-      #ac-input,.ac-contact-form input{min-height:44px;border:1px solid #cad4ce;border-radius:14px;background:#fff;padding:0 13px;font:inherit;color:#17211d}
-      #ac-form button,.ac-contact-form button{min-height:44px;border:0;border-radius:999px;background:#c66d42;color:#fff;font-weight:900;cursor:pointer}
+      #ac-input,.ac-contact-form input{min-height:44px;border:1px solid #cad4ce;border-radius:14px;background:#fff;padding:0 13px;font:inherit;color:#17211d;transition:border-color .16s ease,box-shadow .16s ease}
+      #ac-input:focus,.ac-contact-form input:focus{outline:none;border-color:#2f7a68;box-shadow:0 0 0 4px rgba(47,122,104,.12)}
+      #ac-form button,.ac-contact-form button{min-height:44px;border:0;border-radius:999px;background:linear-gradient(135deg,#c66d42,#d88455);color:#fff;font-weight:900;cursor:pointer;transition:transform .16s ease,filter .16s ease}
+      #ac-form button:hover,.ac-contact-form button:hover{transform:translateY(-1px);filter:saturate(1.08)}
       .ac-contact-form{grid-template-columns:1fr;align-content:start;max-height:250px;overflow:auto}.ac-contact-form strong{color:#17211d}.ac-contact-form small{color:#a23b27;min-height:16px}
       @media(max-width:520px){#autochat-widget-root{right:10px;bottom:10px}#ac-panel{width:calc(100vw - 20px);height:calc(100vh - 20px);max-height:none;border-radius:18px}#ac-chat{height:calc(100vh - 106px)}#ac-messages{min-height:0}.ac-contact-form{max-height:280px}}
     </style>
@@ -241,6 +255,16 @@
     }
 
     messages.scrollTop = messages.scrollHeight;
+  }
+
+  function showTyping() {
+    const wrap = document.createElement("article");
+    wrap.className = "ac-bubble bot ac-typing";
+    wrap.dataset.typing = "true";
+    wrap.innerHTML = `<span>${escapeHtml(defaults.title)}</span><div><i></i><i></i><i></i></div>`;
+    messages.appendChild(wrap);
+    messages.scrollTop = messages.scrollHeight;
+    return () => wrap.remove();
   }
 
   function addContactForm() {
@@ -359,17 +383,20 @@
     addMessage(text, "me");
 
     try {
+      const hideTyping = showTyping();
       const response = await fetch(`${apiUrl}/api/conversations/message`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ businessId, from, text })
       });
       const body = await response.json();
+      hideTyping();
       addMessage(body.outboundText || "No pude responder en este momento.", "bot");
       updateContactConfig(body);
       updateSelectedService(body.outboundText || "");
       if (shouldAskContact(body)) addContactForm();
     } catch {
+      root.querySelector("[data-typing='true']")?.remove();
       addMessage("No pude conectar con el asistente. Intenta de nuevo en un momento.", "bot");
     }
   });
