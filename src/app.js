@@ -18,10 +18,48 @@ import { leadsRouter } from "./modules/leads/leads.routes.js";
 import { publicRouter } from "./modules/public/public.routes.js";
 import { internalRouter } from "./modules/internal/internal.routes.js";
 
+const defaultAllowedOrigins = [
+  "http://localhost:5173",
+  "http://localhost:4000",
+  "https://autochatmx.com",
+  "https://www.autochatmx.com",
+  "https://panel.autochatmx.com"
+];
+
+function getAllowedOrigins() {
+  const configured = [
+    process.env.FRONTEND_ORIGIN,
+    process.env.PUBLIC_APP_URL,
+    process.env.ADMIN_URL,
+    process.env.CORS_ORIGINS
+  ]
+    .filter(Boolean)
+    .flatMap((value) => String(value).split(","))
+    .map((value) => value.trim().replace(/\/$/, ""))
+    .filter(Boolean);
+
+  return new Set([...defaultAllowedOrigins, ...configured]);
+}
+
+function corsOrigin(origin, callback) {
+  if (!origin) return callback(null, true);
+  const allowedOrigins = getAllowedOrigins();
+  return callback(null, allowedOrigins.has(origin.replace(/\/$/, "")));
+}
+
 export function createApp() {
   const app = express();
 
-  app.use(cors({ origin: true }));
+  app.use(cors({
+    origin: corsOrigin,
+    methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
+    allowedHeaders: ["Content-Type", "Authorization"],
+    credentials: true
+  }));
+  app.use((req, res, next) => {
+    if (req.method === "OPTIONS") return res.sendStatus(204);
+    return next();
+  });
   app.use(express.urlencoded({ extended: false }));
   app.use(express.json({ limit: "1mb" }));
   app.use("/public", express.static("public", {
