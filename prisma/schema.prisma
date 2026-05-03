@@ -9,7 +9,7 @@ datasource db {
 
 model Business {
   id           String         @id @default(cuid())
-  clientNumber Int           @unique @default(autoincrement())
+  clientNumber Int?          @unique
   name         String
   niche        String
   automationType String      @default("appointment")

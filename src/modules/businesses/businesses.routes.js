@@ -207,9 +207,37 @@ function normalizeServicePayload(service) {
   };
 }
 
+async function nextClientNumber(tx = prisma) {
+  const result = await tx.business.aggregate({ _max: { clientNumber: true } });
+  return (result._max.clientNumber || 0) + 1;
+}
+
+async function ensureClientNumbersForBusinesses(businessIds) {
+  if (!businessIds.length) return;
+  const missing = await prisma.business.findMany({
+    where: { id: { in: businessIds }, clientNumber: null },
+    orderBy: { createdAt: "asc" },
+    select: { id: true }
+  });
+
+  if (!missing.length) return;
+
+  await prisma.$transaction(async (tx) => {
+    let number = await nextClientNumber(tx);
+    for (const business of missing) {
+      await tx.business.update({
+        where: { id: business.id },
+        data: { clientNumber: number }
+      });
+      number += 1;
+    }
+  });
+}
+
 businessRouter.get("/", async (req, res, next) => {
   try {
     const businessIds = req.memberships.map((membership) => membership.businessId);
+    await ensureClientNumbersForBusinesses(businessIds);
     const businesses = await prisma.business.findMany({
       where: { id: { in: businessIds } },
       include: includeBusinessRelations,
@@ -224,6 +252,7 @@ businessRouter.get("/", async (req, res, next) => {
 businessRouter.get("/:id", async (req, res, next) => {
   try {
     if (!requireBusinessAccess(req, res, req.params.id)) return;
+    await ensureClientNumbersForBusinesses([req.params.id]);
     const business = await prisma.business.findUnique({
       where: { id: req.params.id },
       include: includeBusinessRelations
@@ -244,8 +273,10 @@ businessRouter.post("/", async (req, res, next) => {
     const automationType = req.body.automationType || template?.automationType || parsed.automationType || "appointment";
 
     const business = await prisma.$transaction(async (tx) => {
+      const clientNumber = await nextClientNumber(tx);
       const created = await tx.business.create({
         data: {
+          clientNumber,
           name: parsed.name,
           niche: parsed.niche,
           automationType,
