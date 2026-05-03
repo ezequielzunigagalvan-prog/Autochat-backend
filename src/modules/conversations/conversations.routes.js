@@ -12,6 +12,10 @@ const messageSchema = z.object({
   text: z.string().min(1)
 });
 
+const deleteConversationsSchema = z.object({
+  ids: z.array(z.string()).min(1)
+});
+
 conversationRouter.get("/", requireAuth, async (req, res, next) => {
   try {
     if (req.query.businessId && !requireBusinessAccess(req, res, String(req.query.businessId))) return;
@@ -33,6 +37,30 @@ conversationRouter.post("/message", async (req, res, next) => {
     const parsed = messageSchema.parse(req.body);
     const result = await answerMessage(parsed);
     res.status(201).json(result);
+  } catch (error) {
+    next(error);
+  }
+});
+
+conversationRouter.delete("/", requireAuth, async (req, res, next) => {
+  try {
+    const parsed = deleteConversationsSchema.parse(req.body);
+    const allowedBusinessIds = req.memberships.map((membership) => membership.businessId);
+    const conversations = await prisma.conversation.findMany({
+      where: {
+        id: { in: parsed.ids },
+        businessId: { in: allowedBusinessIds }
+      },
+      select: { id: true }
+    });
+
+    if (!conversations.length) return res.json({ deleted: 0 });
+
+    const result = await prisma.conversation.deleteMany({
+      where: { id: { in: conversations.map((conversation) => conversation.id) } }
+    });
+
+    res.json({ deleted: result.count });
   } catch (error) {
     next(error);
   }
