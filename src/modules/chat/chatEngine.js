@@ -308,6 +308,13 @@ function contactFieldsForCustomer(customer, business) {
     };
   }
 
+  if (APPOINTMENT_DEMO_IDS.includes(business.id)) {
+    return {
+      serviceName: service.name,
+      contactFields: ["phone"]
+    };
+  }
+
   const serviceFields = parseContactFields(service.contactFields);
 
   return {
@@ -684,15 +691,17 @@ async function cancelAppointmentFromConversation({ business, customer, appointme
   return `Listo, cancele tu cita: ${formatAppointment(appointment)}.`;
 }
 
-async function createAppointmentFromState({ business, customer, customerName }) {
+async function createAppointmentFromState({ business, customer, customerName, customerPhone }) {
   const service = business.services.find((item) => item.id === customer.pendingServiceId);
   if (!service || !customer.pendingStartsAt) return null;
 
   const cleanName = customerName?.trim() || customer.name || "Cliente sin identificar";
+  const cleanPhone = customerPhone?.trim() || customer.phone || "";
   const updatedCustomer = await prisma.customer.update({
     where: { id: customer.id },
     data: {
       name: cleanName,
+      phone: cleanPhone,
       leadStatus: "cita_agendada",
       conversationState: "idle",
       pendingServiceId: null,
@@ -719,7 +728,7 @@ async function createAppointmentFromState({ business, customer, customerName }) 
       data: {
         status: "confirmed",
         customerName: updatedCustomer.name,
-        customerPhone: updatedCustomer.phone,
+        customerPhone: cleanPhone || updatedCustomer.phone,
         holdExpiresAt: null
       }
     });
@@ -809,6 +818,13 @@ async function holdDateTimeIfAvailable({ business, customer, service, startsAt }
     where: { id: customer.id },
     data: { conversationState: "scheduling_name", pendingStartsAt: startsAt }
   });
+
+  if (APPOINTMENT_DEMO_IDS.includes(business.id)) {
+    return {
+      available: true,
+      reply: `Listo, te aparto ese horario por ${business.holdMinutes} minutos. Para confirmar la cita, compárteme solo tu teléfono / WhatsApp.`
+    };
+  }
 
   return {
     available: true,
@@ -1298,7 +1314,13 @@ async function buildStateReply({ business, customer, text }) {
   }
 
   if (customer.conversationState === "scheduling_name") {
-    const appointment = await createAppointmentFromState({ business, customer, customerName: text });
+    const isAppointmentDemo = APPOINTMENT_DEMO_IDS.includes(business.id);
+    const appointment = await createAppointmentFromState({
+      business,
+      customer,
+      customerName: isAppointmentDemo ? "Cliente demo" : text,
+      customerPhone: isAppointmentDemo ? text : undefined
+    });
     if (appointment?.unavailable) {
       return {
         intent: "scheduling_unavailable",
@@ -1319,7 +1341,9 @@ async function buildStateReply({ business, customer, text }) {
     return {
       intent: "appointment_confirmed",
       status: "appointment_confirmed",
-      reply: `Cita confirmada para ${appointment.customerName}: ${appointment.serviceName}, ${appointment.startsAt.toLocaleString("es-MX")}.`
+      reply: isAppointmentDemo
+        ? `Cita confirmada. Te esperamos para ${appointment.serviceName} el ${appointment.startsAt.toLocaleString("es-MX")}. Confirmación enviada al teléfono ${appointment.customerPhone}.`
+        : `Cita confirmada para ${appointment.customerName}: ${appointment.serviceName}, ${appointment.startsAt.toLocaleString("es-MX")}.`
     };
   }
 
@@ -1354,7 +1378,9 @@ async function buildStateReply({ business, customer, text }) {
       return {
         intent: holdResult.available ? "scheduling_name" : "scheduling_unavailable",
         status: "scheduling",
-        reply: holdResult.available ? "Tengo servicio, día y hora. ¿A qué nombre registro la cita?" : holdResult.reply
+        reply: holdResult.available && APPOINTMENT_DEMO_IDS.includes(business.id)
+          ? "Tengo servicio, día y hora. Para confirmar la cita, compárteme solo tu teléfono / WhatsApp."
+          : holdResult.available ? "Tengo servicio, día y hora. ¿A qué nombre registro la cita?" : holdResult.reply
       };
     }
 
