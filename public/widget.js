@@ -258,6 +258,15 @@
   const form = root.querySelector("#ac-form");
   const input = root.querySelector("#ac-input");
 
+  function scrollMessagesToBottom() {
+    requestAnimationFrame(() => {
+      messages.scrollTo({
+        top: messages.scrollHeight,
+        behavior: "smooth"
+      });
+    });
+  }
+
   function addMessage(text, who) {
     const wrap = document.createElement("article");
     wrap.className = `ac-bubble ${who === "me" ? "me" : "bot"}`;
@@ -281,7 +290,7 @@
       }
     }
 
-    messages.scrollTop = messages.scrollHeight;
+    scrollMessagesToBottom();
   }
 
   function showTyping() {
@@ -290,7 +299,7 @@
     wrap.dataset.typing = "true";
     wrap.innerHTML = `<span>${escapeHtml(defaults.title)}</span><div><i></i><i></i><i></i></div>`;
     messages.appendChild(wrap);
-    messages.scrollTop = messages.scrollHeight;
+    scrollMessagesToBottom();
     return () => wrap.remove();
   }
 
