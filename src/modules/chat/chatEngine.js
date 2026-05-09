@@ -2,6 +2,7 @@ import { prisma } from "../../prisma.js";
 import { generateBusinessReply } from "../ai/openaiService.js";
 import { addMinutes, availabilityMessage, checkAppointmentAvailability } from "../appointments/availability.js";
 import { ensureDemoBusiness, isDemoBusinessId } from "../demoBusinesses.js";
+import { notifyBusinessLead } from "../notifications/notification.service.js";
 
 const scheduleKeywords = [
   "cita",
@@ -359,9 +360,9 @@ async function startQuoteFlow(customer, business, seedText = "") {
   };
 }
 
-async function completeQuoteFlow(customer, data) {
+async function completeQuoteFlow(customer, data, business) {
   const summary = quoteSummary(data);
-  await prisma.customer.update({
+  const updatedCustomer = await prisma.customer.update({
     where: { id: customer.id },
     data: {
       conversationState: "idle",
@@ -377,6 +378,14 @@ async function completeQuoteFlow(customer, data) {
     }
   });
 
+  notifyBusinessLead({
+    business,
+    customer: updatedCustomer,
+    type: "quote_complete"
+  }).catch((error) => {
+    console.error("[notifications] quote notification failed:", error);
+  });
+
   return {
     intent: "quote_complete",
     status: "needs_human",
@@ -388,6 +397,16 @@ async function completeQuoteFlow(customer, data) {
       "Como depende de condiciones técnicas, no te doy un precio automático. Una persona del equipo revisará la información y te contactará para afinar la cotización."
     ].join("\n")
   };
+}
+
+function notifyNeedsHuman(business, customer) {
+  notifyBusinessLead({
+    business,
+    customer,
+    type: "needs_human"
+  }).catch((error) => {
+    console.error("[notifications] human notification failed:", error);
+  });
 }
 
 function hasProjectDiagnosticInfo(text) {
@@ -1082,10 +1101,11 @@ async function buildStateReply({ business, customer, text }) {
   }
 
   if (includesAny(text, humanKeywords)) {
-    await prisma.customer.update({
+    const updatedCustomer = await prisma.customer.update({
       where: { id: customer.id },
       data: { conversationState: "needs_human", needsHuman: true, lastIntent: "needs_human" }
     });
+    notifyNeedsHuman(business, updatedCustomer);
     return {
       intent: "needs_human",
       status: "needs_human",
@@ -1117,10 +1137,11 @@ async function buildStateReply({ business, customer, text }) {
     }
 
     if (choice === "human") {
-      await prisma.customer.update({
+      const updatedCustomer = await prisma.customer.update({
         where: { id: customer.id },
         data: { conversationState: "needs_human", needsHuman: true, lastIntent: "needs_human" }
       });
+      notifyNeedsHuman(business, updatedCustomer);
       return {
         intent: "needs_human",
         status: "needs_human",
@@ -1252,7 +1273,7 @@ async function buildStateReply({ business, customer, text }) {
     }
 
     data.urgency = text.trim();
-    return completeQuoteFlow(customer, data);
+    return completeQuoteFlow(customer, data, business);
   }
 
   if (customer.conversationState === "scheduling_service") {

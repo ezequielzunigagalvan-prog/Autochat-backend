@@ -14,6 +14,7 @@ model Business {
   niche        String
   automationType String      @default("appointment")
   phone        String         @default("")
+  notificationEmail String   @default("")
   address      String         @default("")
   hours        String         @default("")
   tone         String         @default("amable y profesional")

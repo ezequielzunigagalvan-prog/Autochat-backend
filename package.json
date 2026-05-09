@@ -21,6 +21,7 @@
     "cors": "latest",
     "dotenv": "latest",
     "express": "latest",
+    "nodemailer": "^8.0.7",
     "openai": "^6.34.0",
     "prisma": "^5.22.0",
     "twilio": "^6.0.0",
