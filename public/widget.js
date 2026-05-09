@@ -1,8 +1,13 @@
 (async function () {
   const script = document.currentScript;
-  const businessId = script?.dataset.businessId || "";
+  const LUBRIPLAN_BUSINESS_ID = "cmoyi5hsk0005nd4f32980jsq";
+  let businessId = script?.dataset.businessId || "";
   const configuredApiUrl = script?.dataset.apiUrl || "";
   const scriptOrigin = script?.src ? new URL(script.src, window.location.href).origin : window.location.origin;
+  const hostName = window.location.hostname.toLowerCase();
+  if (hostName.includes("lubriplan")) {
+    businessId = LUBRIPLAN_BUSINESS_ID;
+  }
   const apiUrl =
     configuredApiUrl && !(configuredApiUrl.includes("localhost") && !window.location.hostname.includes("localhost"))
       ? configuredApiUrl.replace(/\/$/, "")
@@ -26,6 +31,35 @@
       title: "Diagnóstico AutoChat",
       intro: "Cuéntame tu proyecto y genero un ejemplo.",
       hello: "Hola. Para preparar tu diagnóstico, cuéntame qué negocio tienes, tus servicios, horarios, qué datos necesitas pedir y qué quieres automatizar."
+    },
+    [LUBRIPLAN_BUSINESS_ID]: {
+      prompt: "",
+      title: "Asistente LubriPlan",
+      intro: "Conoce LubriPlan y solicita una implementación para tu planta.",
+      hello: "Hola. Soy el asistente de LubriPlan. Puedo explicarte qué es, cómo funciona y cómo implementarlo en tu planta.\n\nTambién tenemos una promoción: implementación gratis y 3 meses de LubriPlan gratis.",
+      quickReplies: [
+        { label: "¿Qué es LubriPlan?", value: "Qué es LubriPlan" },
+        { label: "Cómo funciona", value: "Cómo funciona LubriPlan" },
+        { label: "Promoción", value: "Promoción de implementación gratis y 3 meses gratis" },
+        { label: "Implementarlo en mi planta", value: "Quiero implementar LubriPlan en mi planta" }
+      ],
+      services: [
+        {
+          name: "Información de LubriPlan",
+          description: "LubriPlan es una plataforma para ordenar, controlar y dar seguimiento a la lubricación industrial: equipos, puntos, rutas, frecuencias, ejecuciones, evidencias y alertas.",
+          contactFields: ["name", "phone", "email", "company", "position", "city", "details"]
+        },
+        {
+          name: "Implementación en planta",
+          description: "La implementación se adapta a la operación de cada planta: alta de equipos, puntos de lubricación, rutinas, responsables, frecuencias y seguimiento desde el panel.",
+          contactFields: ["name", "phone", "email", "company", "position", "city", "equipment", "details", "urgency"]
+        },
+        {
+          name: "Promoción LubriPlan",
+          description: "Promoción disponible: implementación gratis y 3 meses de LubriPlan gratis para iniciar el control de lubricación sin costo inicial de arranque.",
+          contactFields: ["name", "phone", "email", "company", "position", "city", "details"]
+        }
+      ]
     }
   };
 
@@ -38,6 +72,7 @@
       : "Este widget no tiene un negocio configurado. Copia el script desde el panel del cliente correcto."
   };
   const defaults = { ...genericDefaults, ...(widgetDefaults[businessId] || {}) };
+  let loadedBusinessConfig = Boolean(widgetDefaults[businessId]);
   defaults.services = defaults.services || [];
   defaults.style = defaults.style || "premium";
   defaults.primaryColor = defaults.primaryColor || "#1f5c50";
@@ -51,11 +86,12 @@
   defaults.quickReplies = defaults.quickReplies || [];
   defaults.contactTitle = defaults.contactTitle || "Datos de contacto";
   defaults.contactIntro = defaults.contactIntro || "Para que el equipo pueda darte seguimiento, déjame tus datos.";
-  if (businessId && !widgetDefaults[businessId]) {
+  if (businessId && !businessId.startsWith("demo_")) {
     try {
       const response = await fetch(`${apiUrl}/api/public/businesses/${businessId}/widget`);
       if (response.ok) {
         const config = await response.json();
+        loadedBusinessConfig = true;
         defaults.title = config.title || defaults.title;
         defaults.intro = config.intro || defaults.intro;
         defaults.hello = config.hello || defaults.hello;
@@ -170,6 +206,7 @@
       if (defaults.quickReplies.length) {
         return defaults.quickReplies.map((item) => [item.label, item.value]);
       }
+      if (!loadedBusinessConfig) return [];
       const quoteMode = /cotiza|cotización|cotizacion|filtr|industrial|proyecto|renta|curso/i.test(`${defaults.prompt} ${defaults.hello}`);
       return [
         ["Ver servicios", "servicios"],
