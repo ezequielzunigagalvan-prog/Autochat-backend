@@ -31,6 +31,7 @@ const widgetQuickReplySchema = z.array(z.object({
 const businessSchema = z.object({
   name: z.string().min(2),
   niche: z.enum(["barberia", "estetica", "clinica_dental", "industrial", "servicios", "proyectos", "salud", "inmobiliaria", "educacion"]),
+  applyTemplate: z.boolean().optional().default(false),
   automationType: z.enum(["appointment", "quote", "lead", "hybrid"]).optional().default("appointment"),
   phone: z.string().optional().default(""),
   notificationEmail: z.string().email().or(z.literal("")).optional().default(""),
@@ -269,10 +270,10 @@ businessRouter.get("/:id", async (req, res, next) => {
 businessRouter.post("/", async (req, res, next) => {
   try {
     const parsed = businessSchema.parse(req.body);
-    const template = businessTemplates[parsed.niche];
+    const template = parsed.applyTemplate ? businessTemplates[parsed.niche] : null;
     const servicesToCreate = parsed.services.length ? parsed.services : (template?.services || []);
     const faqsToCreate = parsed.faqs.length ? parsed.faqs : (template?.faqs || []);
-    const automationType = req.body.automationType || template?.automationType || parsed.automationType || "appointment";
+    const automationType = parsed.automationType || template?.automationType || "appointment";
 
     const business = await prisma.$transaction(async (tx) => {
       const clientNumber = await nextClientNumber(tx);
