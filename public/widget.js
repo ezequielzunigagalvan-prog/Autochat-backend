@@ -452,6 +452,26 @@
     form.dispatchEvent(new Event("submit", { cancelable: true, bubbles: true }));
   }
 
+  function localLubriPlanReply(text) {
+    if (businessId !== LUBRIPLAN_BUSINESS_ID) return "";
+    const normalized = normalizeText(text);
+    if (normalized.includes("que es") || normalized.includes("qué es") || normalized.includes("informacion")) {
+      return "LubriPlan es una plataforma para gestionar la lubricación industrial. Ayuda a ordenar equipos, puntos de lubricación, rutas, frecuencias, responsables, evidencias y alertas para que mantenimiento tenga una operación más visible y controlada.";
+    }
+    if (normalized.includes("como funciona") || normalized.includes("cómo funciona")) {
+      return "Funciona registrando equipos, puntos de lubricación y rutinas. El equipo técnico ejecuta actividades, sube evidencias y el panel permite revisar avances, pendientes, alertas e historial de cada punto.";
+    }
+    if (normalized.includes("promocion") || normalized.includes("promoción") || normalized.includes("gratis")) {
+      return "La promoción actual incluye implementación gratis y 3 meses de LubriPlan gratis. Sirve para arrancar el control de lubricación de tu planta sin costo inicial de implementación.\n\n¿Quieres que el equipo te contacte para revisarlo?";
+    }
+    if (normalized.includes("implementar") || normalized.includes("planta") || normalized.includes("demo")) {
+      selectedServiceName = "Implementación en planta";
+      selectedContactFields = ["name", "phone", "email", "company", "position", "city", "equipment", "details"];
+      return "Perfecto. Para revisar la implementación en tu planta, el equipo necesita conocer tu empresa, ubicación, equipo o área principal y qué quieres controlar con LubriPlan.";
+    }
+    return "Puedo ayudarte a conocer LubriPlan, explicar cómo funciona, revisar la promoción o solicitar una implementación para tu planta.";
+  }
+
   toggle.addEventListener("click", openPanel);
   close.addEventListener("click", closePanel);
   window.AutoChatWidget = { open: openPanel, close: closePanel };
@@ -490,7 +510,9 @@
       if (shouldAskContact(body)) addContactForm();
     } catch {
       root.querySelector("[data-typing='true']")?.remove();
-      addMessage("No pude conectar con el asistente. Intenta de nuevo en un momento.", "bot");
+      const fallbackReply = localLubriPlanReply(text);
+      addMessage(fallbackReply || "No pude conectar con el asistente. Intenta de nuevo en un momento.", "bot");
+      if (fallbackReply && /contacte|implementación|planta/i.test(fallbackReply)) addContactForm();
     }
   });
 })();

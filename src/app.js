@@ -25,7 +25,9 @@ const defaultAllowedOrigins = [
   "https://www.autochatmx.com",
   "https://panel.autochatmx.com",
   "https://hidrolub.com",
-  "https://www.hidrolub.com"
+  "https://www.hidrolub.com",
+  "https://lubriplan.com",
+  "https://www.lubriplan.com"
 ];
 
 function getAllowedOrigins() {
@@ -45,6 +47,12 @@ function getAllowedOrigins() {
 
 function corsOrigin(origin, callback) {
   if (!origin) return callback(null, true);
+  try {
+    const hostname = new URL(origin).hostname.toLowerCase();
+    if (hostname.includes("lubriplan")) return callback(null, true);
+  } catch {
+    // Fall back to explicit origin comparison below.
+  }
   const allowedOrigins = getAllowedOrigins();
   return callback(null, allowedOrigins.has(origin.replace(/\/$/, "")));
 }
