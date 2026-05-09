@@ -2,10 +2,11 @@
   const script = document.currentScript;
   const businessId = script?.dataset.businessId || "";
   const configuredApiUrl = script?.dataset.apiUrl || "";
+  const scriptOrigin = script?.src ? new URL(script.src, window.location.href).origin : window.location.origin;
   const apiUrl =
     configuredApiUrl && !(configuredApiUrl.includes("localhost") && !window.location.hostname.includes("localhost"))
       ? configuredApiUrl.replace(/\/$/, "")
-      : window.location.origin;
+      : scriptOrigin;
 
   const widgetDefaults = {
     demo_barberia: {
@@ -70,11 +71,11 @@
     }
   }
 
-  let from = sessionStorage.getItem(`autochat_from_${businessId}`);
-  if (!from) {
-    from = `web-${businessId || "default"}-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
-    sessionStorage.setItem(`autochat_from_${businessId}`, from);
+  function createConversationId() {
+    return `web-${businessId || "default"}-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
   }
+
+  let from = createConversationId();
   let contactCaptured = false;
 
   function escapeHtml(value) {
@@ -155,6 +156,7 @@
   };
 
   function quickRepliesFor(text) {
+    if (businessId === "demo_proyectos") return [];
     const normalized = String(text || "").toLowerCase();
     if (normalized.includes("¿en qué puedo ayudarte") || normalized.includes("en que puedo ayudarte")) {
       if (defaults.quickReplies.length) {
@@ -213,7 +215,8 @@
       #ac-panel.ac-open{animation:ac-pop .28s cubic-bezier(.2,.8,.2,1)}
       .ac-header{min-height:92px;background:linear-gradient(135deg,var(--ac-primary),var(--ac-secondary));color:#fff;padding:17px;display:grid;grid-template-columns:46px 1fr 36px;gap:13px;align-items:center;position:relative;overflow:hidden}
       .ac-header:after{content:"";position:absolute;inset:0;background:linear-gradient(110deg,transparent 15%,rgba(255,255,255,.16) 42%,transparent 66%);animation:ac-shimmer 5.2s ease-in-out infinite;pointer-events:none}
-      .ac-avatar{width:46px;height:46px;border-radius:999px;background:#eef7f0;color:var(--ac-primary);display:grid;place-items:center;font-weight:900;border:1px solid rgba(255,255,255,.52);box-shadow:0 10px 24px rgba(0,0,0,.12);position:relative;z-index:1}
+      .ac-avatar{width:46px;height:46px;border-radius:999px;background:#eef7f0;color:var(--ac-primary);display:grid;place-items:center;font-weight:900;border:1px solid rgba(255,255,255,.52);box-shadow:0 10px 24px rgba(0,0,0,.12);position:relative;z-index:1;overflow:hidden}
+      .ac-avatar img{width:100%;height:100%;object-fit:cover}
       .ac-title{display:grid;gap:2px;min-width:0}.ac-title strong{font-size:18px;line-height:1.1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.ac-title span{font-size:13px;opacity:.86;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
       .ac-title,#ac-close{position:relative;z-index:1}
       #ac-close{width:36px;height:36px;border:0;border-radius:999px;background:rgba(255,255,255,.16);color:#fff;font-size:18px;cursor:pointer;transition:background .18s ease,transform .18s ease}
@@ -235,14 +238,14 @@
     <button id="ac-toggle" type="button">${escapeHtml(defaults.launcherText)}</button>
     <section id="ac-panel" aria-label="Chat de atención">
       <header class="ac-header">
-        <div class="ac-avatar">${escapeHtml(defaults.avatarText)}</div>
+        <div class="ac-avatar"><img src="${apiUrl}/public/autochat-logo.png" alt="" /></div>
         <div class="ac-title"><strong>${escapeHtml(defaults.title)}</strong><span>${escapeHtml(defaults.intro)}</span></div>
         <button id="ac-close" type="button" aria-label="Cerrar chat">×</button>
       </header>
       <div id="ac-chat">
         <div id="ac-messages"></div>
         <form id="ac-form">
-          <input id="ac-input" value="${escapeHtml(defaults.prompt)}" placeholder="Escribe tu mensaje..." />
+          <input id="ac-input" value="" placeholder="Escribe tu mensaje..." autocomplete="off" />
           <button type="submit">Ir</button>
         </form>
       </div>
@@ -368,7 +371,6 @@
         const body = await response.json();
         if (!response.ok) throw new Error(body.error || "No se pudieron guardar los datos.");
         from = body.from;
-        sessionStorage.setItem(`autochat_from_${businessId}`, from);
         contactCaptured = true;
         contactForm.remove();
         chat.classList.remove("contact-open");
@@ -389,6 +391,15 @@
   function closePanel() {
     panel.style.display = "none";
     toggle.style.display = "block";
+    messages.innerHTML = "";
+    input.value = "";
+    selectedServiceName = "";
+    selectedContactFields = [];
+    contactCaptured = false;
+    from = createConversationId();
+    root.querySelector("#ac-contact-form")?.remove();
+    chat.classList.remove("contact-open");
+    form.style.display = "grid";
   }
 
   function sendQuickReply(value) {
