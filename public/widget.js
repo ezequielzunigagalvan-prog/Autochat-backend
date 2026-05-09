@@ -29,7 +29,15 @@
     }
   };
 
-  const defaults = { ...(widgetDefaults[businessId] || widgetDefaults.demo_proyectos) };
+  const genericDefaults = {
+    prompt: "",
+    title: "Asistente AutoChat",
+    intro: "Cargando configuración del asistente.",
+    hello: businessId
+      ? "Estoy cargando la configuración de este asistente. Si sigues viendo este mensaje, revisa que el script tenga el ID correcto del negocio."
+      : "Este widget no tiene un negocio configurado. Copia el script desde el panel del cliente correcto."
+  };
+  const defaults = { ...genericDefaults, ...(widgetDefaults[businessId] || {}) };
   defaults.services = defaults.services || [];
   defaults.style = defaults.style || "premium";
   defaults.primaryColor = defaults.primaryColor || "#1f5c50";
