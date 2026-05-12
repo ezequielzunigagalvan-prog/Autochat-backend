@@ -156,6 +156,14 @@
   let lubriPlanLocalStep = "";
   let lubriPlanLocalData = {};
 
+  function isLocalYes(normalized) {
+    return normalized.includes("si") || normalized.includes("sí") || normalized.includes("claro") || normalized.includes("ok") || normalized.includes("me interesa");
+  }
+
+  function isLocalNo(normalized) {
+    return normalized === "no" || normalized.includes("no gracias") || normalized.includes("despues") || normalized.includes("después");
+  }
+
   function updateSelectedService(text = "") {
     const explicit = String(text).match(/Servicio:\s*([^\n]+)/i) || String(text).match(/Has seleccionado:\s*([^\n]+)/i);
     if (explicit?.[1]) {
@@ -480,11 +488,18 @@
         "¿Te gustaría implementar LubriPlan en tu planta?"
       ].join("\n");
     }
-    if (lubriPlanLocalStep === "confirm" && (normalized.includes("si") || normalized.includes("sí") || normalized.includes("claro") || normalized.includes("ok"))) {
+    if ((lubriPlanLocalStep === "confirm" || lubriPlanLocalStep === "followup") && isLocalYes(normalized)) {
       selectedServiceName = "Implementación en planta";
       selectedContactFields = ["name", "phone", "email", "company"];
       lubriPlanLocalStep = "";
       return "Perfecto. Déjame tus datos para que el equipo pueda contactarte y revisar la implementación de LubriPlan en tu planta.";
+    }
+    if (lubriPlanLocalStep === "confirm" && isLocalNo(normalized)) {
+      lubriPlanLocalStep = "followup";
+      return "Claro. Si cambias de opinión, escribe sí y te pido tus datos. También puedo explicarte la promoción actual o cómo funciona LubriPlan.";
+    }
+    if (lubriPlanLocalStep === "followup" && isLocalNo(normalized)) {
+      return "Sin problema. Puedo explicarte qué es LubriPlan, cómo funciona o la promoción actual cuando quieras.";
     }
     if (normalized.includes("que es") || normalized.includes("qué es") || normalized.includes("informacion")) {
       return "LubriPlan es una plataforma para gestionar la lubricación industrial. Ayuda a ordenar equipos, puntos de lubricación, rutas, frecuencias, responsables, evidencias y alertas para que mantenimiento tenga una operación más visible y controlada.";
@@ -496,7 +511,7 @@
       lubriPlanLocalStep = "promo";
       return "La promoción actual incluye implementación gratis y 3 meses de LubriPlan gratis. Sirve para arrancar el control de lubricación de tu planta sin costo inicial de implementación.\n\n¿Quieres que revisemos la implementación para tu planta?";
     }
-    if (normalized.includes("implementar") || normalized.includes("planta") || normalized.includes("demo") || (lubriPlanLocalStep === "promo" && (normalized.includes("si") || normalized.includes("sí")))) {
+    if (normalized.includes("implementar") || normalized.includes("planta") || normalized.includes("demo") || (lubriPlanLocalStep === "promo" && isLocalYes(normalized))) {
       selectedServiceName = "Implementación en planta";
       selectedContactFields = ["name", "phone", "email", "company"];
       lubriPlanLocalStep = "current_system";

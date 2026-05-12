@@ -545,6 +545,11 @@ function isLubriPlanYes(text) {
   return yesKeywords.some((keyword) => normalized.includes(normalize(keyword)));
 }
 
+function isLubriPlanNo(text) {
+  const normalized = normalize(text);
+  return noKeywords.some((keyword) => normalized === normalize(keyword) || normalized.includes(normalize(keyword)));
+}
+
 async function rememberLubriPlanStep(customer, step) {
   await prisma.customer.update({
     where: { id: customer.id },
@@ -577,6 +582,43 @@ async function startLubriPlanImplementation(customer, business) {
     intent: "lubriplan_implementation",
     status: "auto_replied",
     reply: "Perfecto. Para revisar la implementación de LubriPlan en tu planta, primero dime: ¿con qué sistema llevan actualmente la lubricación? Por ejemplo: Excel, papel, pizarrón, otro software o no tienen un control formal."
+  };
+}
+
+async function requestLubriPlanContact(customer, business) {
+  const data = parsePendingData(customer);
+  const service = findLubriPlanImplementationService(business);
+  const summary = [
+    "Solicitud de implementación LubriPlan",
+    `Sistema actual: ${data.currentSystem || "No especificado"}`,
+    `Equipos aproximados: ${data.equipmentCount || "No especificado"}`
+  ].join("\n");
+
+  const updatedCustomer = await prisma.customer.update({
+    where: { id: customer.id },
+    data: {
+      conversationState: "idle",
+      pendingServiceId: service?.id || null,
+      pendingData: "{}",
+      leadStatus: "contactado",
+      needsHuman: true,
+      notes: [customer.notes, summary].filter(Boolean).join("\n\n"),
+      quoteService: service?.name || "Implementación en planta",
+      quoteDetails: `Sistema actual: ${data.currentSystem || "No especificado"}. Equipos aproximados: ${data.equipmentCount || "No especificado"}.`,
+      quoteLocation: "",
+      quoteUrgency: "",
+      lastIntent: "lubriplan_contact_request"
+    }
+  });
+
+  notifyBusinessLead({ business, customer: updatedCustomer, type: "needs_human" }).catch((error) => {
+    console.error("[notifications] LubriPlan notification failed:", error);
+  });
+
+  return {
+    intent: "lubriplan_contact_request",
+    status: "needs_human",
+    reply: "Perfecto. Déjame tus datos para que el equipo pueda contactarte y revisar la implementación de LubriPlan en tu planta."
   };
 }
 
@@ -634,50 +676,33 @@ async function handleLubriPlanFlow({ business, customer, text }) {
   }
 
   if (state === "lubriplan_confirm") {
-    const data = parsePendingData(customer);
     if (isLubriPlanYes(text)) {
-      const service = findLubriPlanImplementationService(business);
-      const summary = [
-        "Solicitud de implementación LubriPlan",
-        `Sistema actual: ${data.currentSystem || "No especificado"}`,
-        `Equipos aproximados: ${data.equipmentCount || "No especificado"}`
-      ].join("\n");
-      const updatedCustomer = await prisma.customer.update({
-        where: { id: customer.id },
-        data: {
-          conversationState: "idle",
-          pendingServiceId: service?.id || null,
-          pendingData: "{}",
-          leadStatus: "contactado",
-          needsHuman: true,
-          notes: [customer.notes, summary].filter(Boolean).join("\n\n"),
-          quoteService: service?.name || "Implementación en planta",
-          quoteDetails: `Sistema actual: ${data.currentSystem || "No especificado"}. Equipos aproximados: ${data.equipmentCount || "No especificado"}.`,
-          quoteLocation: "",
-          quoteUrgency: "",
-          lastIntent: "lubriplan_contact_request"
-        }
-      });
-      notifyBusinessLead({ business, customer: updatedCustomer, type: "needs_human" }).catch((error) => {
-        console.error("[notifications] LubriPlan notification failed:", error);
-      });
-
-      return {
-        intent: "lubriplan_contact_request",
-        status: "needs_human",
-        reply: "Perfecto. Déjame tus datos para que el equipo pueda contactarte y revisar la implementación de LubriPlan en tu planta."
-      };
+      return requestLubriPlanContact(customer, business);
     }
 
     await prisma.customer.update({
       where: { id: customer.id },
-      data: { conversationState: "idle", pendingData: "{}", lastIntent: "lubriplan_not_now" }
+      data: { conversationState: "lubriplan_followup", lastIntent: "lubriplan_not_now" }
     });
     return {
       intent: "lubriplan_not_now",
       status: "auto_replied",
-      reply: "Claro. Si quieres, también puedo explicarte la promoción actual o cómo funciona LubriPlan."
+      reply: "Claro. Si cambias de opinión, escribe sí y te pido tus datos. También puedo explicarte la promoción actual o cómo funciona LubriPlan."
     };
+  }
+
+  if (state === "lubriplan_followup") {
+    if (isLubriPlanYes(text)) {
+      return requestLubriPlanContact(customer, business);
+    }
+
+    if (isLubriPlanNo(text)) {
+      return {
+        intent: "lubriplan_followup",
+        status: "auto_replied",
+        reply: "Sin problema. Puedo explicarte qué es LubriPlan, cómo funciona o la promoción actual cuando quieras."
+      };
+    }
   }
 
   if (
