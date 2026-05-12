@@ -21,6 +21,7 @@ const humanKeywords = ["humano", "asesor", "persona", "llamar", "queja", "atenci
 const cancelKeywords = ["cancelar", "reiniciar", "empezar de nuevo", "salir", "reset"];
 const PROJECTS_DEMO_ID = "demo_proyectos";
 const APPOINTMENT_DEMO_IDS = ["demo_barberia", "demo_dental"];
+const LUBRIPLAN_BUSINESS_ID = "cmoyi5hsk0005nd4f32980jsq";
 const QUOTE_BASED_NICHES = ["industrial", "servicios", "proyectos", "inmobiliaria", "educacion"];
 const quoteKeywords = ["cotizar", "cotizacion", "cotización", "precio", "presupuesto", "propuesta", "servicio", "informacion", "información"];
 const strongQuoteKeywords = ["cotizar", "cotizacion", "cotización", "precio", "presupuesto", "propuesta"];
@@ -50,6 +51,10 @@ function isQuoteBasedBusiness(business) {
   return QUOTE_BASED_NICHES.includes(business.niche);
 }
 
+function isLubriPlanBusiness(business) {
+  return business?.id === LUBRIPLAN_BUSINESS_ID || normalize(business?.name).includes("lubriplan");
+}
+
 function isGreetingOrShortHelp(text) {
   const normalized = normalize(text);
   return (
@@ -59,6 +64,19 @@ function isGreetingOrShortHelp(text) {
 }
 
 function mainMenuReply(business) {
+  if (isLubriPlanBusiness(business)) {
+    return [
+      "Hola, soy el asistente de LubriPlan. ¿En qué puedo ayudarte?",
+      "",
+      "1. ¿Qué es LubriPlan?",
+      "2. Cómo funciona",
+      "3. Promoción actual",
+      "4. Implementarlo en mi planta",
+      "",
+      "Responde con el número de la opción o dime qué necesitas."
+    ].join("\n");
+  }
+
   return [
     `Hola, soy el asistente de ${business.name}. ¿En qué puedo ayudarte hoy?`,
     "",
@@ -72,6 +90,13 @@ function mainMenuReply(business) {
 
 function detectMainMenuChoice(text, business) {
   const normalized = normalize(text);
+  if (isLubriPlanBusiness(business)) {
+    if (/^(1|uno|opcion 1|opcion uno)\b/.test(normalized) || normalized.includes("que es") || normalized.includes("informacion")) return "lubriplan_info";
+    if (/^(2|dos|opcion 2|opcion dos)\b/.test(normalized) || normalized.includes("como funciona")) return "lubriplan_how";
+    if (/^(3|tres|opcion 3|opcion tres)\b/.test(normalized) || normalized.includes("promocion") || normalized.includes("gratis")) return "lubriplan_promo";
+    if (/^(4|cuatro|opcion 4|opcion cuatro)\b/.test(normalized) || normalized.includes("implementar") || normalized.includes("implementacion") || normalized.includes("planta")) return "lubriplan_implementation";
+  }
+
   const quoteBased = isQuoteBasedBusiness(business);
 
   if (/^(1|uno|opcion 1|opcion uno)\b/.test(normalized) || includesAny(text, servicesKeywords)) return "services";
@@ -261,8 +286,11 @@ function quoteDetailQuestion(business, step) {
 }
 
 function quoteSummary(data) {
+  const title = normalize(data.service).includes("implementacion")
+    ? "Solicitud de implementación"
+    : "Solicitud de cotización";
   return [
-    "Solicitud de cotización",
+    title,
     `Servicio: ${data.service || "No especificado"}`,
     `Detalles: ${data.details || "No especificados"}`,
     `Ubicación: ${data.location || "No especificada"}`,
@@ -495,6 +523,125 @@ function findServiceFromText(services, text) {
     const firstWord = serviceName.split(/\s+/)[0];
     return normalized.includes(serviceName) || (firstWord.length > 3 && normalized.includes(firstWord));
   });
+}
+
+function findLubriPlanImplementationService(business) {
+  return (
+    business.services.find((service) => normalize(service.name).includes("implementacion")) ||
+    business.services.find((service) => normalize(service.name).includes("lubriplan")) ||
+    business.services[0]
+  );
+}
+
+function isLubriPlanYes(text) {
+  const normalized = normalize(text);
+  return yesKeywords.some((keyword) => normalized.includes(normalize(keyword)));
+}
+
+async function rememberLubriPlanStep(customer, step) {
+  await prisma.customer.update({
+    where: { id: customer.id },
+    data: {
+      conversationState: step,
+      pendingData: "{}",
+      lastIntent: step
+    }
+  });
+}
+
+async function startLubriPlanImplementation(customer, business) {
+  const service = findLubriPlanImplementationService(business);
+  const data = {
+    service: service?.name || "Implementación en planta",
+    serviceId: service?.id || null
+  };
+
+  await prisma.customer.update({
+    where: { id: customer.id },
+    data: {
+      conversationState: "quote_details",
+      pendingServiceId: service?.id || null,
+      pendingData: JSON.stringify(data),
+      lastIntent: "lubriplan_implementation"
+    }
+  });
+
+  return {
+    intent: "lubriplan_implementation",
+    status: "auto_replied",
+    reply: [
+      "Perfecto. Para revisar la implementación de LubriPlan en tu planta necesito entender tu operación.",
+      "",
+      "Cuéntame brevemente:",
+      "- Qué área o equipos quieres controlar",
+      "- Cuántos puntos de lubricación manejan aproximadamente",
+      "- Si hoy llevan el control en papel, Excel u otro sistema"
+    ].join("\n")
+  };
+}
+
+async function handleLubriPlanFlow({ business, customer, text }) {
+  if (!isLubriPlanBusiness(business)) return null;
+  const normalized = normalize(text);
+  const state = customer.conversationState || "";
+  if (["quote_service", "quote_details", "quote_location", "quote_urgency"].includes(state)) return null;
+
+  if (
+    normalized.includes("implementar") ||
+    normalized.includes("implementacion") ||
+    normalized.includes("planta") ||
+    normalized.includes("demo") ||
+    (state.startsWith("lubriplan_") && isLubriPlanYes(text))
+  ) {
+    return startLubriPlanImplementation(customer, business);
+  }
+
+  if (normalized.includes("promocion") || normalized.includes("gratis") || /^(3|tres|opcion 3)\b/.test(normalized)) {
+    await rememberLubriPlanStep(customer, "lubriplan_promo");
+    return {
+      intent: "lubriplan_promo",
+      status: "auto_replied",
+      reply: [
+        "La promoción actual incluye implementación gratis y 3 meses de LubriPlan gratis.",
+        "",
+        "Esto ayuda a iniciar el control de lubricación sin costo inicial de arranque.",
+        "",
+        "¿Quieres que revisemos la implementación para tu planta?"
+      ].join("\n")
+    };
+  }
+
+  if (normalized.includes("como funciona") || /^(2|dos|opcion 2)\b/.test(normalized)) {
+    await rememberLubriPlanStep(customer, "lubriplan_how");
+    return {
+      intent: "lubriplan_how",
+      status: "auto_replied",
+      reply: [
+        "LubriPlan funciona con un panel donde se registran equipos, puntos de lubricación, rutas, frecuencias y responsables.",
+        "",
+        "El equipo técnico ejecuta actividades, sube evidencias y el sistema permite revisar avances, pendientes, alertas e historial.",
+        "",
+        "¿Quieres que te explique la implementación en planta o la promoción actual?"
+      ].join("\n")
+    };
+  }
+
+  if (normalized.includes("que es") || normalized.includes("informacion") || /^(1|uno|opcion 1)\b/.test(normalized)) {
+    await rememberLubriPlanStep(customer, "lubriplan_info");
+    return {
+      intent: "lubriplan_info",
+      status: "auto_replied",
+      reply: [
+        "LubriPlan es una plataforma para gestionar la lubricación industrial.",
+        "",
+        "Ayuda a ordenar equipos, puntos de lubricación, rutas, frecuencias, responsables, evidencias y alertas para que mantenimiento tenga una operación más visible y controlada.",
+        "",
+        "¿Quieres que te informe sobre implementación o la promoción actual?"
+      ].join("\n")
+    };
+  }
+
+  return null;
 }
 
 const WEEKDAYS = [
@@ -914,6 +1061,9 @@ async function buildStateReply({ business, customer, text }) {
     };
   }
 
+  const lubriPlanReply = await handleLubriPlanFlow({ business, customer, text });
+  if (lubriPlanReply) return lubriPlanReply;
+
   if (customer.conversationState === "cancelling_select") {
     const { appointments, selected } = await selectAppointmentFromText(customer, text);
     if (!selected) {
@@ -1115,6 +1265,11 @@ async function buildStateReply({ business, customer, text }) {
 
   if (customer.conversationState === "main_menu") {
     const choice = detectMainMenuChoice(text, business);
+
+    if (choice?.startsWith("lubriplan_")) {
+      const lubriPlanChoiceReply = await handleLubriPlanFlow({ business, customer, text });
+      if (lubriPlanChoiceReply) return lubriPlanChoiceReply;
+    }
 
     if (choice === "services") {
       return startServiceSelection(customer, business);
