@@ -153,6 +153,8 @@
 
   let selectedServiceName = "";
   let selectedContactFields = [];
+  let lubriPlanLocalStep = "";
+  let lubriPlanLocalData = {};
 
   function updateSelectedService(text = "") {
     const explicit = String(text).match(/Servicio:\s*([^\n]+)/i) || String(text).match(/Has seleccionado:\s*([^\n]+)/i);
@@ -189,7 +191,7 @@
     name: { id: "ac-name", placeholder: "Nombre", type: "text" },
     phone: { id: "ac-phone", placeholder: "Teléfono / WhatsApp", type: "tel" },
     email: { id: "ac-email", placeholder: "Correo", type: "email" },
-    company: { id: "ac-company", placeholder: "Empresa", type: "text" },
+    company: { id: "ac-company", placeholder: "Empresa (opcional)", type: "text", required: false },
     position: { id: "ac-position", placeholder: "Puesto / cargo", type: "text" },
     address: { id: "ac-address", placeholder: "Dirección / ubicación", type: "text" },
     city: { id: "ac-city", placeholder: "Ciudad / zona", type: "text" },
@@ -365,7 +367,7 @@
       <span>${escapeHtml(defaults.contactIntro)}</span>
       ${fields.map((field) => {
         const meta = fieldMeta[field] || { id: `ac-${field}`, placeholder: field, type: "text" };
-        return `<input id="${meta.id}" data-field="${field}" placeholder="${escapeHtml(meta.placeholder)}" type="${meta.type}" required />`;
+        return `<input id="${meta.id}" data-field="${field}" placeholder="${escapeHtml(meta.placeholder)}" type="${meta.type}" ${meta.required === false ? "" : "required"} />`;
       }).join("")}
       <button type="submit">Enviar datos</button>
       <small id="ac-lead-error"></small>
@@ -440,6 +442,8 @@
     input.value = "";
     selectedServiceName = "";
     selectedContactFields = [];
+    lubriPlanLocalStep = "";
+    lubriPlanLocalData = {};
     contactCaptured = false;
     from = createConversationId();
     root.querySelector("#ac-contact-form")?.remove();
@@ -455,6 +459,33 @@
   function localLubriPlanReply(text) {
     if (businessId !== LUBRIPLAN_BUSINESS_ID) return "";
     const normalized = normalizeText(text);
+    if (lubriPlanLocalStep === "current_system") {
+      lubriPlanLocalData.currentSystem = text.trim();
+      lubriPlanLocalStep = "equipment_count";
+      return "Gracias. ¿Cuántos equipos manejan aproximadamente en la planta? Puede ser un estimado.";
+    }
+    if (lubriPlanLocalStep === "equipment_count") {
+      lubriPlanLocalData.equipmentCount = text.trim();
+      lubriPlanLocalStep = "confirm";
+      return [
+        "Perfecto, con eso ya se entiende mejor el punto de partida:",
+        "",
+        `Sistema actual: ${lubriPlanLocalData.currentSystem || "No especificado"}`,
+        `Equipos aproximados: ${lubriPlanLocalData.equipmentCount || "No especificado"}`,
+        "",
+        "LubriPlan te ayudaría a centralizar rutas, puntos de lubricación, responsables, evidencias y alertas para que el seguimiento no dependa de hojas sueltas o memoria operativa.",
+        "",
+        "La implementación suele ser relativamente rápida porque se puede iniciar con la carga de equipos, puntos críticos, frecuencias y responsables, sin cambiar toda la operación de golpe.",
+        "",
+        "¿Te gustaría implementar LubriPlan en tu planta?"
+      ].join("\n");
+    }
+    if (lubriPlanLocalStep === "confirm" && (normalized.includes("si") || normalized.includes("sí") || normalized.includes("claro") || normalized.includes("ok"))) {
+      selectedServiceName = "Implementación en planta";
+      selectedContactFields = ["name", "phone", "email", "company"];
+      lubriPlanLocalStep = "";
+      return "Perfecto. Déjame tus datos para que el equipo pueda contactarte y revisar la implementación de LubriPlan en tu planta.";
+    }
     if (normalized.includes("que es") || normalized.includes("qué es") || normalized.includes("informacion")) {
       return "LubriPlan es una plataforma para gestionar la lubricación industrial. Ayuda a ordenar equipos, puntos de lubricación, rutas, frecuencias, responsables, evidencias y alertas para que mantenimiento tenga una operación más visible y controlada.";
     }
@@ -462,12 +493,14 @@
       return "Funciona registrando equipos, puntos de lubricación y rutinas. El equipo técnico ejecuta actividades, sube evidencias y el panel permite revisar avances, pendientes, alertas e historial de cada punto.";
     }
     if (normalized.includes("promocion") || normalized.includes("promoción") || normalized.includes("gratis")) {
-      return "La promoción actual incluye implementación gratis y 3 meses de LubriPlan gratis. Sirve para arrancar el control de lubricación de tu planta sin costo inicial de implementación.\n\n¿Quieres que el equipo te contacte para revisarlo?";
+      lubriPlanLocalStep = "promo";
+      return "La promoción actual incluye implementación gratis y 3 meses de LubriPlan gratis. Sirve para arrancar el control de lubricación de tu planta sin costo inicial de implementación.\n\n¿Quieres que revisemos la implementación para tu planta?";
     }
-    if (normalized.includes("implementar") || normalized.includes("planta") || normalized.includes("demo")) {
+    if (normalized.includes("implementar") || normalized.includes("planta") || normalized.includes("demo") || (lubriPlanLocalStep === "promo" && (normalized.includes("si") || normalized.includes("sí")))) {
       selectedServiceName = "Implementación en planta";
-      selectedContactFields = ["name", "phone", "email", "company", "position", "city", "equipment", "details"];
-      return "Perfecto. Para revisar la implementación en tu planta, el equipo necesita conocer tu empresa, ubicación, equipo o área principal y qué quieres controlar con LubriPlan.";
+      selectedContactFields = ["name", "phone", "email", "company"];
+      lubriPlanLocalStep = "current_system";
+      return "Perfecto. Para revisar la implementación de LubriPlan en tu planta, primero dime: ¿con qué sistema llevan actualmente la lubricación? Por ejemplo: Excel, papel, pizarrón, otro software o no tienen un control formal.";
     }
     return "Puedo ayudarte a conocer LubriPlan, explicar cómo funciona, revisar la promoción o solicitar una implementación para tu planta.";
   }
@@ -512,7 +545,7 @@
       root.querySelector("[data-typing='true']")?.remove();
       const fallbackReply = localLubriPlanReply(text);
       addMessage(fallbackReply || "No pude conectar con el asistente. Intenta de nuevo en un momento.", "bot");
-      if (fallbackReply && /contacte|implementación|planta/i.test(fallbackReply)) addContactForm();
+      if (fallbackReply && /déjame tus datos|deja tus datos|contactarte/i.test(fallbackReply)) addContactForm();
     }
   });
 })();

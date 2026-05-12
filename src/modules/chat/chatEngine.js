@@ -311,6 +311,13 @@ function contactFieldsForCustomer(customer, business) {
   let service = null;
   const quoteDefaultFields = ["name", "phone", "email", "company", "city", "equipment", "urgency"];
 
+  if (isLubriPlanBusiness(business)) {
+    return {
+      serviceName: "Implementación en planta",
+      contactFields: ["name", "phone", "email", "company"]
+    };
+  }
+
   if (customer?.pendingServiceId) {
     service = business.services.find((item) => item.id === customer.pendingServiceId);
   }
@@ -559,7 +566,7 @@ async function startLubriPlanImplementation(customer, business) {
   await prisma.customer.update({
     where: { id: customer.id },
     data: {
-      conversationState: "quote_details",
+      conversationState: "lubriplan_current_system",
       pendingServiceId: service?.id || null,
       pendingData: JSON.stringify(data),
       lastIntent: "lubriplan_implementation"
@@ -569,14 +576,7 @@ async function startLubriPlanImplementation(customer, business) {
   return {
     intent: "lubriplan_implementation",
     status: "auto_replied",
-    reply: [
-      "Perfecto. Para revisar la implementación de LubriPlan en tu planta necesito entender tu operación.",
-      "",
-      "Cuéntame brevemente:",
-      "- Qué área o equipos quieres controlar",
-      "- Cuántos puntos de lubricación manejan aproximadamente",
-      "- Si hoy llevan el control en papel, Excel u otro sistema"
-    ].join("\n")
+    reply: "Perfecto. Para revisar la implementación de LubriPlan en tu planta, primero dime: ¿con qué sistema llevan actualmente la lubricación? Por ejemplo: Excel, papel, pizarrón, otro software o no tienen un control formal."
   };
 }
 
@@ -585,6 +585,100 @@ async function handleLubriPlanFlow({ business, customer, text }) {
   const normalized = normalize(text);
   const state = customer.conversationState || "";
   if (["quote_service", "quote_details", "quote_location", "quote_urgency"].includes(state)) return null;
+
+  if (state === "lubriplan_current_system") {
+    const data = { ...parsePendingData(customer), currentSystem: text.trim() };
+    await prisma.customer.update({
+      where: { id: customer.id },
+      data: {
+        conversationState: "lubriplan_equipment_count",
+        pendingData: JSON.stringify(data),
+        lastIntent: "lubriplan_current_system"
+      }
+    });
+
+    return {
+      intent: "lubriplan_equipment_count",
+      status: "auto_replied",
+      reply: "Gracias. ¿Cuántos equipos manejan aproximadamente en la planta? Puede ser un estimado."
+    };
+  }
+
+  if (state === "lubriplan_equipment_count") {
+    const data = { ...parsePendingData(customer), equipmentCount: text.trim() };
+    await prisma.customer.update({
+      where: { id: customer.id },
+      data: {
+        conversationState: "lubriplan_confirm",
+        pendingData: JSON.stringify(data),
+        lastIntent: "lubriplan_summary"
+      }
+    });
+
+    return {
+      intent: "lubriplan_summary",
+      status: "auto_replied",
+      reply: [
+        "Perfecto, con eso ya se entiende mejor el punto de partida:",
+        "",
+        `Sistema actual: ${data.currentSystem || "No especificado"}`,
+        `Equipos aproximados: ${data.equipmentCount || "No especificado"}`,
+        "",
+        "LubriPlan te ayudaría a centralizar rutas, puntos de lubricación, responsables, evidencias y alertas para que el seguimiento no dependa de hojas sueltas o memoria operativa.",
+        "",
+        "La implementación suele ser relativamente rápida porque se puede iniciar con la carga de equipos, puntos críticos, frecuencias y responsables, sin cambiar toda la operación de golpe.",
+        "",
+        "¿Te gustaría implementar LubriPlan en tu planta?"
+      ].join("\n")
+    };
+  }
+
+  if (state === "lubriplan_confirm") {
+    const data = parsePendingData(customer);
+    if (isLubriPlanYes(text)) {
+      const service = findLubriPlanImplementationService(business);
+      const summary = [
+        "Solicitud de implementación LubriPlan",
+        `Sistema actual: ${data.currentSystem || "No especificado"}`,
+        `Equipos aproximados: ${data.equipmentCount || "No especificado"}`
+      ].join("\n");
+      const updatedCustomer = await prisma.customer.update({
+        where: { id: customer.id },
+        data: {
+          conversationState: "idle",
+          pendingServiceId: service?.id || null,
+          pendingData: "{}",
+          leadStatus: "contactado",
+          needsHuman: true,
+          notes: [customer.notes, summary].filter(Boolean).join("\n\n"),
+          quoteService: service?.name || "Implementación en planta",
+          quoteDetails: `Sistema actual: ${data.currentSystem || "No especificado"}. Equipos aproximados: ${data.equipmentCount || "No especificado"}.`,
+          quoteLocation: "",
+          quoteUrgency: "",
+          lastIntent: "lubriplan_contact_request"
+        }
+      });
+      notifyBusinessLead({ business, customer: updatedCustomer, type: "needs_human" }).catch((error) => {
+        console.error("[notifications] LubriPlan notification failed:", error);
+      });
+
+      return {
+        intent: "lubriplan_contact_request",
+        status: "needs_human",
+        reply: "Perfecto. Déjame tus datos para que el equipo pueda contactarte y revisar la implementación de LubriPlan en tu planta."
+      };
+    }
+
+    await prisma.customer.update({
+      where: { id: customer.id },
+      data: { conversationState: "idle", pendingData: "{}", lastIntent: "lubriplan_not_now" }
+    });
+    return {
+      intent: "lubriplan_not_now",
+      status: "auto_replied",
+      reply: "Claro. Si quieres, también puedo explicarte la promoción actual o cómo funciona LubriPlan."
+    };
+  }
 
   if (
     normalized.includes("implementar") ||
