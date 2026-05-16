@@ -1,6 +1,6 @@
 import { Router } from "express";
 import { prisma } from "../../prisma.js";
-import { requireAuth, requireBusinessAccess } from "../auth/auth.middleware.js";
+import { businessListWhere, businessScopedWhere, requireAuth, requireBusinessAccess } from "../auth/auth.middleware.js";
 
 export const dashboardRouter = Router();
 dashboardRouter.use(requireAuth);
@@ -17,7 +17,8 @@ function endOfToday() {
 
 dashboardRouter.get("/", async (req, res, next) => {
   try {
-    const businessIds = req.memberships.map((membership) => membership.businessId);
+    const businessWhere = businessListWhere(req);
+    const scopedWhere = businessScopedWhere(req);
     const [
       businesses,
       totalLeads,
@@ -28,7 +29,7 @@ dashboardRouter.get("/", async (req, res, next) => {
       recentLeads
     ] = await Promise.all([
       prisma.business.findMany({
-        where: { id: { in: businessIds } },
+        where: businessWhere,
         include: {
           _count: {
             select: {
@@ -40,15 +41,15 @@ dashboardRouter.get("/", async (req, res, next) => {
         },
         orderBy: { updatedAt: "desc" }
       }),
-      prisma.customer.count({ where: { businessId: { in: businessIds } } }),
-      prisma.customer.count({ where: { businessId: { in: businessIds }, leadStatus: "nuevo" } }),
-      prisma.customer.count({ where: { businessId: { in: businessIds }, needsHuman: true } }),
-      prisma.conversation.count({ where: { businessId: { in: businessIds } } }),
+      prisma.customer.count({ where: scopedWhere }),
+      prisma.customer.count({ where: { ...scopedWhere, leadStatus: "nuevo" } }),
+      prisma.customer.count({ where: { ...scopedWhere, needsHuman: true } }),
+      prisma.conversation.count({ where: scopedWhere }),
       prisma.appointment.count({
-        where: { businessId: { in: businessIds }, status: "confirmed", startsAt: { gt: new Date() } }
+        where: { ...scopedWhere, status: "confirmed", startsAt: { gt: new Date() } }
       }),
       prisma.customer.findMany({
-        where: { businessId: { in: businessIds } },
+        where: scopedWhere,
         include: {
           business: { select: { id: true, clientNumber: true, name: true, niche: true } },
           conversations: { orderBy: { createdAt: "desc" }, take: 1 }

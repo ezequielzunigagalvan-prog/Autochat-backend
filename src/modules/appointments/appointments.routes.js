@@ -2,7 +2,7 @@ import { Router } from "express";
 import { z } from "zod";
 import { prisma } from "../../prisma.js";
 import { addMinutes, availabilityMessage, checkAppointmentAvailability } from "./availability.js";
-import { requireAuth, requireBusinessAccess } from "../auth/auth.middleware.js";
+import { businessScopedWhere, requireAuth, requireBusinessAccess } from "../auth/auth.middleware.js";
 
 export const appointmentRouter = Router();
 appointmentRouter.use(requireAuth);
@@ -25,11 +25,10 @@ const changeStatusSchema = z.object({
 
 appointmentRouter.get("/", async (req, res, next) => {
   try {
-    const allowedBusinessIds = req.memberships.map((membership) => membership.businessId);
     const businessId = req.query.businessId ? String(req.query.businessId) : undefined;
     if (businessId && !requireBusinessAccess(req, res, businessId)) return;
     const appointments = await prisma.appointment.findMany({
-      where: businessId ? { businessId } : { businessId: { in: allowedBusinessIds } },
+      where: businessId ? { businessId } : businessScopedWhere(req),
       orderBy: { startsAt: "asc" }
     });
     res.json(appointments);

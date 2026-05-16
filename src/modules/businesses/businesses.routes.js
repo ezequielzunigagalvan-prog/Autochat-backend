@@ -2,7 +2,7 @@ import { Router } from "express";
 import { z } from "zod";
 import { businessTemplates } from "../../config/businessTemplates.js";
 import { prisma } from "../../prisma.js";
-import { requireAuth, requireBusinessAccess } from "../auth/auth.middleware.js";
+import { businessListWhere, requireAuth, requireBusinessAccess } from "../auth/auth.middleware.js";
 
 export const businessRouter = Router();
 businessRouter.use(requireAuth);
@@ -239,10 +239,15 @@ async function ensureClientNumbersForBusinesses(businessIds) {
 
 businessRouter.get("/", async (req, res, next) => {
   try {
-    const businessIds = req.memberships.map((membership) => membership.businessId);
+    const listWhere = businessListWhere(req);
+    const businessesNeedingNumber = await prisma.business.findMany({
+      where: { ...listWhere, clientNumber: null },
+      select: { id: true }
+    });
+    const businessIds = businessesNeedingNumber.map((business) => business.id);
     await ensureClientNumbersForBusinesses(businessIds);
     const businesses = await prisma.business.findMany({
-      where: { id: { in: businessIds } },
+      where: listWhere,
       include: includeBusinessRelations,
       orderBy: { createdAt: "asc" }
     });

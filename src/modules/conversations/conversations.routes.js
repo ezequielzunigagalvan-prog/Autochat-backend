@@ -2,7 +2,7 @@ import { Router } from "express";
 import { z } from "zod";
 import { prisma } from "../../prisma.js";
 import { answerMessage } from "../chat/chatEngine.js";
-import { requireAuth, requireBusinessAccess } from "../auth/auth.middleware.js";
+import { businessScopedWhere, requireAuth, requireBusinessAccess } from "../auth/auth.middleware.js";
 
 export const conversationRouter = Router();
 
@@ -19,11 +19,11 @@ const deleteConversationsSchema = z.object({
 conversationRouter.get("/", requireAuth, async (req, res, next) => {
   try {
     if (req.query.businessId && !requireBusinessAccess(req, res, String(req.query.businessId))) return;
-    const allowedBusinessIds = req.memberships.map((membership) => membership.businessId);
+    const scopedWhere = businessScopedWhere(req);
     const conversations = await prisma.conversation.findMany({
       where: req.query.businessId
         ? { businessId: String(req.query.businessId) }
-        : { businessId: { in: allowedBusinessIds } },
+        : scopedWhere,
       orderBy: { createdAt: "desc" }
     });
     res.json(conversations);
@@ -45,11 +45,11 @@ conversationRouter.post("/message", async (req, res, next) => {
 conversationRouter.delete("/", requireAuth, async (req, res, next) => {
   try {
     const parsed = deleteConversationsSchema.parse(req.body);
-    const allowedBusinessIds = req.memberships.map((membership) => membership.businessId);
+    const scopedWhere = businessScopedWhere(req);
     const conversations = await prisma.conversation.findMany({
       where: {
         id: { in: parsed.ids },
-        businessId: { in: allowedBusinessIds }
+        ...scopedWhere
       },
       select: { id: true }
     });

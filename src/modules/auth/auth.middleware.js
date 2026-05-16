@@ -25,7 +25,22 @@ export async function requireAuth(req, res, next) {
 }
 
 export function canAccessBusiness(req, businessId) {
+  if (isInternalAdmin(req.user)) return true;
   return req.memberships?.some((membership) => membership.businessId === businessId);
+}
+
+export function getAccessibleBusinessIds(req) {
+  return req.memberships?.map((membership) => membership.businessId) || [];
+}
+
+export function businessListWhere(req) {
+  if (isInternalAdmin(req.user)) return {};
+  return { id: { in: getAccessibleBusinessIds(req) } };
+}
+
+export function businessScopedWhere(req) {
+  if (isInternalAdmin(req.user)) return {};
+  return { businessId: { in: getAccessibleBusinessIds(req) } };
 }
 
 export function isInternalAdmin(user) {
