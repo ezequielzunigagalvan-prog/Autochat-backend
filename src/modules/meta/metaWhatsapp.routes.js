@@ -37,7 +37,11 @@ metaWhatsappRouter.get("/", async (req, res) => {
   const mode = req.query["hub.mode"];
   const token = req.query["hub.verify_token"];
   const challenge = req.query["hub.challenge"];
-  const configuredToken = process.env.META_WHATSAPP_VERIFY_TOKEN || process.env.WHATSAPP_VERIFY_TOKEN || "";
+  const configuredToken =
+    process.env.META_VERIFY_TOKEN ||
+    process.env.META_WHATSAPP_VERIFY_TOKEN ||
+    process.env.WHATSAPP_VERIFY_TOKEN ||
+    "";
 
   if (mode === "subscribe" && token && token === configuredToken) {
     return res.status(200).send(challenge);
